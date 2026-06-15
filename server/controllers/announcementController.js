@@ -41,12 +41,14 @@ const getProjectAnnouncements = async (req, res) => {
 
     try {
         const announcements = await pool.query(
-            `SELECT a.*, u.name as author_name 
+            `SELECT a.*, u.name as author_name,
+                    CASE WHEN nr.id IS NOT NULL THEN TRUE ELSE FALSE END as is_read
              FROM announcements a 
              JOIN users u ON a.created_by = u.id 
+             LEFT JOIN notification_reads nr ON a.id = nr.announcement_id AND nr.employee_id = $2
              WHERE a.project_id = $1 
              ORDER BY a.created_at DESC`,
-            [projectId]
+            [projectId, req.user.id]
         );
         res.json(announcements.rows);
     } catch (error) {

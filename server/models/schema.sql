@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     id SERIAL PRIMARY KEY,
     project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
     task_name VARCHAR(255) NOT NULL,
-    status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'Completed')), -- Binary status
+    status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'In Progress', 'Completed')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -61,12 +61,14 @@ CREATE TABLE IF NOT EXISTS time_logs (
     id SERIAL PRIMARY KEY,
     employee_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP,
     duration_minutes INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_time_logs_employee_date ON time_logs (employee_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_time_logs_project ON time_logs (project_id);
 
 CREATE TABLE IF NOT EXISTS announcements (
     id SERIAL PRIMARY KEY,

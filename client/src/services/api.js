@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create an Axios instance pointing to our backend API
 const API = axios.create({
-    baseURL: 'http://localhost:5000/api', // Backend port 5000
+    baseURL: 'http://localhost:5001/api', // Backend port 5001
 });
 
 // Interceptor to automatically attach the JWT token to every request

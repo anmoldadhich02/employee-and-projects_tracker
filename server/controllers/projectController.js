@@ -40,20 +40,7 @@ const createProject = async (req, res) => {
 // @access  Protected
 const getProjects = async (req, res) => {
     try {
-        let query = 'SELECT * FROM projects ORDER BY created_at DESC';
-        if (req.user.role === 'Employee') {
-            // Employees only see projects they created or are assigned to
-            query = `
-                SELECT DISTINCT p.* FROM projects p
-                LEFT JOIN project_assignments pa ON p.id = pa.project_id
-                WHERE p.created_by = $1 OR pa.employee_id = $1
-                ORDER BY p.created_at DESC
-            `;
-            const result = await pool.query(query, [req.user.id]);
-            return res.json(result.rows);
-        }
-        
-        const result = await pool.query(query);
+        const result = await pool.query('SELECT * FROM projects ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         console.error(error.message);
