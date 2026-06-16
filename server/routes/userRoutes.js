@@ -14,7 +14,7 @@ const { protect, admin, superAdmin } = require('../middlewares/authMiddleware');
 
 router.post('/login', loginUser);
 router.post('/logout', protect, logoutUser);
-router.get('/dashboard', protect, superAdmin, getDashboardStats);
+router.get('/dashboard', protect, getDashboardStats);
 
 // Employee management (Protected, SuperAdmin/Admin only)
 router.route('/').get(protect, superAdmin, getEmployees).post(protect, superAdmin, createEmployee);

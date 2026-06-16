@@ -11,15 +11,14 @@ const loginUser = async (req, res) => {
         }
 
         const user = result.rows[0];
-        
-        if (user.status === 'Inactive') {
-            return res.status(403).json({ message: 'User account is inactive. Contact Administrator.' });
-        }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
+
+        // Set user status to Working in the database
+        await pool.query('UPDATE users SET status = $1 WHERE id = $2', ['Working', user.id]);
 
         // Attendance auto-login logic
         const today = new Date().toISOString().split('T')[0];
@@ -30,13 +29,13 @@ const loginUser = async (req, res) => {
 
         if (existingAttendance.rows.length === 0) {
             await pool.query(
-                'INSERT INTO attendance (employee_id, date, login_time) VALUES ($1, $2, NOW())',
+                'INSERT INTO attendance (employee_id, date, login_time, worked_seconds) VALUES ($1, $2, NOW(), 0)',
                 [user.id, today]
             );
         } else if (existingAttendance.rows[0].logout_time !== null) {
-            // Already logged out once today, reset logout time to resume work
+            // Already logged out once today, reset login_time to NOW() and logout_time to NULL to resume work
             await pool.query(
-                'UPDATE attendance SET logout_time = NULL WHERE id = $1',
+                'UPDATE attendance SET login_time = NOW(), logout_time = NULL WHERE id = $1',
                 [existingAttendance.rows[0].id]
             );
         }
@@ -117,10 +116,27 @@ const logoutUser = async (req, res) => {
 
         // Finalize attendance for today
         const today = new Date().toISOString().split('T')[0];
-        await pool.query(
-            'UPDATE attendance SET logout_time = NOW() WHERE employee_id = $1 AND date = $2',
+        const attRes = await pool.query(
+            'SELECT login_time FROM attendance WHERE employee_id = $1 AND date = $2',
             [req.user.id, today]
         );
+
+        if (attRes.rows.length > 0) {
+            const loginTime = new Date(attRes.rows[0].login_time);
+            const currentSessionSeconds = Math.round((new Date() - loginTime) / 1000);
+            await pool.query(
+                'UPDATE attendance SET logout_time = NOW(), worked_seconds = COALESCE(worked_seconds, 0) + $1 WHERE employee_id = $2 AND date = $3',
+                [currentSessionSeconds, req.user.id, today]
+            );
+        } else {
+            await pool.query(
+                'UPDATE attendance SET logout_time = NOW() WHERE employee_id = $1 AND date = $2',
+                [req.user.id, today]
+            );
+        }
+
+        // Update user status to Inactive in the database
+        await pool.query('UPDATE users SET status = $1 WHERE id = $2', ['Inactive', req.user.id]);
 
         // Add to notifications
         const user = await pool.query('SELECT name FROM users WHERE id = $1', [req.user.id]);
@@ -174,34 +190,7 @@ const updateUserRole = async (req, res) => {
 // @route   PUT /api/users/:id/status
 // @access  Protected (Admin / Super Admin)
 const updateUserStatus = async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body; // 'Working' or 'Inactive'
-
-    if (!['Working', 'Inactive'].includes(status)) {
-        return res.status(400).json({ message: 'Invalid status' });
-    }
-
-    try {
-        // Prevent editing Admin status
-        const targetUser = await pool.query('SELECT role FROM users WHERE id = $1', [id]);
-        if (targetUser.rows.length === 0) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-
-        if (targetUser.rows[0].role === 'Admin') {
-            return res.status(403).json({ message: 'Cannot deactivate Admin account' });
-        }
-
-        const result = await pool.query(
-            'UPDATE users SET status = $1 WHERE id = $2 RETURNING id, name, email, status',
-            [status, id]
-        );
-
-        res.json(result.rows[0]);
-    } catch (error) {
-        console.error(error.message);
-        res.status(500).send('Server Error');
-    }
+    return res.status(400).json({ message: 'Employee status cannot be set manually. It is automatically managed by login and logout activity.' });
 };
 
 // @desc    Reset password
@@ -256,11 +245,14 @@ const getDashboardStats = async (req, res) => {
         );
         const workingCount = parseInt(workingCountQuery.rows[0].count);
 
-        // 3. Total Hours Logged Today (in minutes, converted to hours)
+        // 3. Total Hours Logged Today (in seconds, converted to hours)
         const totalHoursQuery = await pool.query(
             `SELECT COALESCE(SUM(
-                EXTRACT(EPOCH FROM (COALESCE(logout_time, NOW()) - login_time)) / 3600
-            ), 0) AS total_hours
+                CASE 
+                    WHEN logout_time IS NULL THEN COALESCE(worked_seconds, 0) + EXTRACT(EPOCH FROM (NOW() - login_time))
+                    ELSE COALESCE(worked_seconds, 0)
+                END
+            ), 0) / 3600.0 AS total_hours
             FROM attendance
             WHERE date = CURRENT_DATE`
         );
@@ -283,8 +275,14 @@ const getDashboardStats = async (req, res) => {
             `SELECT u.id, u.name, u.email, u.designation, u.role, u.status,
                     a.login_time,
                     a.logout_time,
+                    a.worked_seconds,
                     tl.start_time AS active_timer_start,
-                    p.name AS current_project_name
+                    p.name AS current_project_name,
+                    (
+                        SELECT task_name FROM tasks 
+                        WHERE project_id = tl.project_id AND status = 'In Progress' 
+                        ORDER BY created_at DESC LIMIT 1
+                    ) AS current_task_name
              FROM users u
              LEFT JOIN attendance a ON u.id = a.employee_id AND a.date = CURRENT_DATE
              LEFT JOIN time_logs tl ON u.id = tl.employee_id AND tl.end_time IS NULL
@@ -297,8 +295,11 @@ const getDashboardStats = async (req, res) => {
             const isWorking = emp.login_time !== null && emp.logout_time === null;
             let shiftHours = 0;
             if (emp.login_time) {
-                const endTime = emp.logout_time ? new Date(emp.logout_time) : new Date();
-                shiftHours = parseFloat(((endTime - new Date(emp.login_time)) / 3600000).toFixed(2));
+                let totalSeconds = emp.worked_seconds || 0;
+                if (!emp.logout_time) {
+                    totalSeconds += Math.round((new Date() - new Date(emp.login_time)) / 1000);
+                }
+                shiftHours = parseFloat((totalSeconds / 3600).toFixed(2));
             }
             return {
                 id: emp.id,
@@ -309,6 +310,7 @@ const getDashboardStats = async (req, res) => {
                 status: emp.status,
                 is_working: isWorking,
                 current_project: emp.current_project_name || null,
+                current_task: emp.current_task_name || null,
                 active_session_minutes: emp.active_timer_start ? Math.round((new Date() - new Date(emp.active_timer_start)) / 60000) : 0,
                 total_hours_today: shiftHours
             };
@@ -337,11 +339,18 @@ const getDashboardStats = async (req, res) => {
             projectHours[row.project_id] = parseFloat(parseFloat(row.total_hours).toFixed(2));
         });
 
-        // Get assigned members for each project
+        // Get assigned and active workers for each project
         const assignmentsQuery = await pool.query(
-            `SELECT pa.project_id, u.name, u.email 
-             FROM project_assignments pa 
-             JOIN users u ON pa.employee_id = u.id`
+            `SELECT DISTINCT project_id, name, email FROM (
+                 SELECT pa.project_id, u.name, u.email 
+                 FROM project_assignments pa 
+                 JOIN users u ON pa.employee_id = u.id
+                 UNION
+                 SELECT tl.project_id, u.name, u.email
+                 FROM time_logs tl
+                 JOIN users u ON tl.employee_id = u.id
+                 WHERE tl.project_id IS NOT NULL
+             ) combined_users`
         );
         const projectAssignments = {};
         assignmentsQuery.rows.forEach(row => {

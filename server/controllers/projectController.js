@@ -53,20 +53,19 @@ const getProjects = async (req, res) => {
 // @access  Protected (Admin / Secondary Admin)
 const updateProject = async (req, res) => {
     const { id } = req.params;
-    const { progress_percentage, status, name, location, site_engineer_contact } = req.body;
+    const { status, name, location, site_engineer_contact } = req.body;
     
     try {
         const updateQuery = `
             UPDATE projects 
-            SET progress_percentage = COALESCE($1, progress_percentage), 
-                status = COALESCE($2, status),
-                name = COALESCE($3, name),
-                location = COALESCE($4, location),
-                site_engineer_contact = COALESCE($5, site_engineer_contact)
-            WHERE id = $6 RETURNING *
+            SET status = COALESCE($1, status),
+                name = COALESCE($2, name),
+                location = COALESCE($3, location),
+                site_engineer_contact = COALESCE($4, site_engineer_contact)
+            WHERE id = $5 RETURNING *
         `;
         
-        const result = await pool.query(updateQuery, [progress_percentage, status, name, location, site_engineer_contact, id]);
+        const result = await pool.query(updateQuery, [status, name, location, site_engineer_contact, id]);
         
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'Project not found' });

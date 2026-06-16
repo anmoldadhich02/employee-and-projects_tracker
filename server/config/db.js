@@ -6,12 +6,16 @@ types.setTypeParser(1114, (stringValue) => {
   return new Date(stringValue.replace(' ', 'T') + 'Z');
 });
 
+console.log(`[DB Config] user=${process.env.DB_USER}, host=${process.env.DB_HOST}, database=${process.env.DB_NAME}, port=${process.env.DB_PORT}`);
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT || 5432,
+  connectionTimeoutMillis: 10000,  // 10 second connection timeout
+  idleTimeoutMillis: 30000,
 });
 
 pool.on('error', (err) => {

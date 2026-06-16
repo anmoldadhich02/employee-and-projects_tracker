@@ -21,15 +21,26 @@ cron.schedule('30 19 * * *', async () => {
             );
         }
 
-        // 2. Stop all active attendances for today
+        // 2. Stop all active attendances for today and mark users as Inactive
         const today = new Date().toISOString().split('T')[0];
-        await pool.query(
-            'UPDATE attendance SET logout_time = NOW() WHERE date = $1 AND logout_time IS NULL',
+        const activeAttendances = await pool.query(
+            'SELECT id, employee_id, login_time FROM attendance WHERE date = $1 AND logout_time IS NULL',
             [today]
         );
+        
+        for (let att of activeAttendances.rows) {
+            await pool.query(
+                'UPDATE users SET status = $1 WHERE id = $2',
+                ['Inactive', att.employee_id]
+            );
 
-        // 3. Mark all logged-in employees as Inactive/Logged Out in users table if we decide to track active presence there
-        // Actually, the PRD asks for real-time live status. We manage live status via tokens, but we can set a flag inside users.
+            const loginTime = new Date(att.login_time);
+            const sessionSeconds = Math.round((new Date() - loginTime) / 1000);
+            await pool.query(
+                'UPDATE attendance SET logout_time = NOW(), worked_seconds = COALESCE(worked_seconds, 0) + $1 WHERE id = $2',
+                [sessionSeconds, att.id]
+            );
+        }
         
         await pool.query('COMMIT');
         console.log('Auto-logout completed successfully.');

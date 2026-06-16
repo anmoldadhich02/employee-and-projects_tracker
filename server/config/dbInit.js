@@ -6,10 +6,18 @@ const pool = require('./db');
 const initializeDatabase = async () => {
   try {
     console.log('Initializing database tables...');
+    
+    // Test connection first
+    console.log(`Connecting to DB at ${process.env.DB_HOST}:${process.env.DB_PORT}...`);
+    const client = await pool.connect();
+    console.log('DB connection established successfully.');
+    client.release();
+    
     const schemaPath = path.join(__dirname, '../models/schema.sql');
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 
     // Run the schema.sql script to build tables
+    console.log('Running schema SQL...');
     await pool.query(schemaSql);
     console.log('Database tables verified/created successfully.');
 

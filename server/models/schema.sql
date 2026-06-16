@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS attendance (
     date DATE NOT NULL,
     login_time TIMESTAMP NOT NULL,
     logout_time TIMESTAMP,
+    worked_seconds INTEGER DEFAULT 0,
     status VARCHAR(50) DEFAULT 'Present',
     UNIQUE (employee_id, date)
 );

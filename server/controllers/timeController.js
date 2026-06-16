@@ -115,18 +115,27 @@ const getActiveProjectTimer = async (req, res) => {
 const getTodayShiftSeconds = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT login_time, logout_time FROM attendance 
+            `SELECT login_time, logout_time, worked_seconds FROM attendance 
              WHERE employee_id = $1 AND date = CURRENT_DATE`,
             [req.user.id]
         );
         if (result.rows.length === 0) {
-            return res.json({ total_seconds: 0, login_time: null });
+            return res.json({ total_seconds: 0, login_time: null, worked_seconds: 0, is_logged_in: false });
         }
         const row = result.rows[0];
-        const loginTime = new Date(row.login_time);
-        const endTime = row.logout_time ? new Date(row.logout_time) : new Date();
-        const totalSeconds = Math.round((endTime - loginTime) / 1000);
-        res.json({ total_seconds: totalSeconds, login_time: row.login_time });
+        const isLoggedIn = row.logout_time === null;
+        
+        let totalSeconds = row.worked_seconds || 0;
+        if (isLoggedIn) {
+            totalSeconds += Math.round((new Date() - new Date(row.login_time)) / 1000);
+        }
+        
+        res.json({
+            total_seconds: totalSeconds,
+            login_time: row.login_time,
+            worked_seconds: row.worked_seconds || 0,
+            is_logged_in: isLoggedIn
+        });
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Server Error');

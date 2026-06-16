@@ -19,6 +19,7 @@ const AdminDashboard = () => {
     });
     const [liveEmployees, setLiveEmployees] = useState([]);
     const [projects, setProjects] = useState([]);
+    const [projectSearch, setProjectSearch] = useState('');
     const [notifications, setNotifications] = useState([]);
     
     // Tab Data
@@ -32,7 +33,6 @@ const AdminDashboard = () => {
     const [projLocation, setProjLocation] = useState('');
     const [projContact, setProjContact] = useState('');
     const [projStartDate, setProjStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [assignedEmps, setAssignedEmps] = useState([]);
 
     // Manage Checklist Modal
     const [showChecklistModal, setShowChecklistModal] = useState(false);
@@ -40,6 +40,7 @@ const AdminDashboard = () => {
     const [projectTasks, setProjectTasks] = useState([]);
     const [newTaskName, setNewTaskName] = useState('');
     const [selectedTemplateId, setSelectedTemplateId] = useState('');
+    const [selectedSuggestedTask, setSelectedSuggestedTask] = useState('');
 
     // Templates Form
     const [newTemplateName, setNewTemplateName] = useState('');
@@ -133,29 +134,20 @@ const AdminDashboard = () => {
                 name: projName,
                 location: projLocation,
                 site_engineer_contact: projContact,
-                start_date: projStartDate,
-                assigned_employees: assignedEmps
+                start_date: projStartDate
             });
             alert('Project created successfully!');
             setShowProjModal(false);
             setProjName('');
             setProjLocation('');
             setProjContact('');
-            setAssignedEmps([]);
             loadDashboard();
         } catch (e) {
             alert('Failed to create project');
         }
     };
 
-    const handleUpdateProjectProgress = async (id, progress) => {
-        try {
-            await API.put(`/projects/${id}`, { progress_percentage: parseInt(progress) });
-            loadDashboard();
-        } catch (e) {
-            alert('Failed to update project progress');
-        }
-    };
+
 
     const handleUpdateProjectStatus = async (id, status) => {
         try {
@@ -188,6 +180,7 @@ const AdminDashboard = () => {
             // Reload tasks
             const res = await API.get(`/projects/${checklistProjId}/tasks`);
             setProjectTasks(res.data);
+            loadTemplates();
         } catch (e) {
             alert('Failed to add task');
         }
@@ -207,6 +200,23 @@ const AdminDashboard = () => {
             alert('Template applied successfully!');
         } catch (e) {
             alert('Failed to apply template');
+        }
+    };
+
+    const handleApplySuggestedTask = async (e) => {
+        e.preventDefault();
+        if (!selectedSuggestedTask) return;
+        try {
+            await API.post(`/projects/${checklistProjId}/tasks`, {
+                tasks: [selectedSuggestedTask]
+            });
+            setSelectedSuggestedTask('');
+            // Reload tasks
+            const res = await API.get(`/projects/${checklistProjId}/tasks`);
+            setProjectTasks(res.data);
+            loadTemplates();
+        } catch (e) {
+            alert('Failed to add suggested task');
         }
     };
 
@@ -252,16 +262,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleToggleEmpStatus = async (id, currentStatus) => {
-        const newStatus = currentStatus === 'Working' ? 'Inactive' : 'Working';
-        try {
-            await API.put(`/users/${id}/status`, { status: newStatus });
-            alert(`Employee account marked as ${newStatus}`);
-            loadEmployees();
-        } catch (e) {
-            alert(e.response?.data?.message || 'Failed to toggle employee status');
-        }
-    };
 
     const handleToggleEmpRole = async (id, currentRole) => {
         if (!isAdmin) {
@@ -391,9 +391,6 @@ const AdminDashboard = () => {
                     <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
                         <span>Employee Master</span>
                     </div>
-                    <div className={`nav-item ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => setActiveTab('templates')}>
-                        <span>Checklist Templates</span>
-                    </div>
                     <div className={`nav-item ${activeTab === 'visits' ? 'active' : ''}`} onClick={() => setActiveTab('visits')}>
                         <span>Site Visits Log</span>
                     </div>
@@ -493,7 +490,20 @@ const AdminDashboard = () => {
                                                             <span style={{ fontSize: '13px' }}>{emp.is_working ? 'Working' : 'Offline'}</span>
                                                         </div>
                                                     </td>
-                                                    <td>{emp.current_project || '--'}</td>
+                                                    <td>
+                                                         {emp.current_project ? (
+                                                             <div>
+                                                                 <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{emp.current_project}</div>
+                                                                 {emp.current_task && (
+                                                                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                                         Task: <span style={{ color: 'var(--accent-secondary, #06b6d4)' }}>{emp.current_task}</span>
+                                                                     </div>
+                                                                 )}
+                                                             </div>
+                                                         ) : (
+                                                             '--'
+                                                         )}
+                                                    </td>
                                                     <td>{emp.total_hours_today} hrs</td>
                                                 </tr>
                                             ))}
@@ -534,73 +544,92 @@ const AdminDashboard = () => {
                 {/* PROJECTS TAB */}
                 {activeTab === 'projects' && (
                     <section className="glass-card">
-                        <h3 style={{ marginBottom: '20px' }}>All Projects Overview</h3>
-                        <div className="table-container">
-                            <table className="custom-table">
-                                <thead>
-                                    <tr>
-                                        <th>Project Name</th>
-                                        <th>Location</th>
-                                        <th>Staff Assigned</th>
-                                        <th>Logged Time</th>
-                                        <th>Status</th>
-                                        <th>Progress Slider</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {projects.map(p => (
-                                        <tr key={p.id}>
-                                            <td>
-                                                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{p.name}</div>
-                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Contact: {p.site_engineer_contact}</div>
-                                            </td>
-                                            <td>{p.location}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                                    {p.assigned_team.map((name, i) => (
-                                                        <span key={i} className="status-pill info" style={{ fontSize: '11px', padding: '2px 6px' }}>{name}</span>
-                                                    ))}
-                                                    {p.assigned_team.length === 0 && <span style={{ color: 'var(--text-muted)' }}>Unassigned</span>}
-                                                </div>
-                                            </td>
-                                            <td>{p.total_hours} hrs</td>
-                                            <td>
-                                                <select 
-                                                    className="form-select"
-                                                    value={p.status}
-                                                    onChange={e => handleUpdateProjectStatus(p.id, e.target.value)}
-                                                    style={{ padding: '4px 8px', fontSize: '13px' }}
-                                                >
-                                                    <option value="Active">Active</option>
-                                                    <option value="On Hold">On Hold</option>
-                                                    <option value="Closed">Closed</option>
-                                                    <option value="Completed">Completed</option>
-                                                </select>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <input 
-                                                        type="range" 
-                                                        min="0" 
-                                                        max="100"
-                                                        value={p.progress_percentage}
-                                                        onChange={e => handleUpdateProjectProgress(p.id, e.target.value)}
-                                                        style={{ width: '80px', cursor: 'pointer' }}
-                                                    />
-                                                    <span>{p.progress_percentage}%</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <button onClick={() => handleOpenChecklistModal(p.id)} className="btn btn-secondary btn-sm">
-                                                    Tasks Checklist
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+                            <h3 style={{ margin: 0 }}>Project Overview</h3>
+                            <input 
+                                type="text" 
+                                className="form-input" 
+                                placeholder="Search project..." 
+                                value={projectSearch} 
+                                onChange={e => setProjectSearch(e.target.value)}
+                                style={{ width: '250px', padding: '8px 12px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                            />
                         </div>
+
+                        <div className="project-cards-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '24px' }}>
+                            {projects
+                                .filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()) || 
+                                             (p.location && p.location.toLowerCase().includes(projectSearch.toLowerCase())) || 
+                                             (p.site_engineer_contact && p.site_engineer_contact.toLowerCase().includes(projectSearch.toLowerCase())))
+                                .map(proj => (
+                                    <div key={proj.id} className="glass-card project-overview-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
+                                        {/* Header: Name & Status */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                                            <div>
+                                                <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>{proj.name}</h4>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                                    {proj.site_engineer_contact || 'No Contact'} &bull; {proj.location || 'No Location'}
+                                                </div>
+                                            </div>
+                                            {/* Status selector (Don't remove function!) */}
+                                            <select 
+                                                className="form-select"
+                                                value={proj.status}
+                                                onChange={e => handleUpdateProjectStatus(proj.id, e.target.value)}
+                                                style={{ padding: '4px 8px', fontSize: '12px', borderRadius: '6px', width: 'auto', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                                            >
+                                                <option value="Active">Active</option>
+                                                <option value="On Hold">On Hold</option>
+                                                <option value="Closed">Closed</option>
+                                                <option value="Completed">Completed</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Boxes Grid */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Hours Used</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '4px' }}>{Math.round(proj.total_hours)}h</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Team Members</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginTop: '4px' }}>{proj.assigned_team?.length || 0}</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)', textAlign: 'center' }}>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Progress</div>
+                                                <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-secondary, #06b6d4)', marginTop: '4px' }}>{proj.progress_percentage}%</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Footer: Team member pills & Tasks Checklist button */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap', gap: '12px' }}>
+                                            {/* Team member pills */}
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                {proj.assigned_team && proj.assigned_team.map((name, idx) => (
+                                                    <span key={idx} style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>
+                                                        {name}
+                                                    </span>
+                                                ))}
+                                                {(!proj.assigned_team || proj.assigned_team.length === 0) && (
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No active team logged</span>
+                                                )}
+                                            </div>
+
+                                            {/* Tasks Checklist Button */}
+                                            <button onClick={() => handleOpenChecklistModal(proj.id)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                                Tasks Checklist
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                        {projects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()) || 
+                                             (p.location && p.location.toLowerCase().includes(projectSearch.toLowerCase())) || 
+                                             (p.site_engineer_contact && p.site_engineer_contact.toLowerCase().includes(projectSearch.toLowerCase()))).length === 0 && (
+                            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                No projects match your search.
+                            </div>
+                        )}
                     </section>
                 )}
 
@@ -616,7 +645,6 @@ const AdminDashboard = () => {
                                         <tr>
                                             <th>Name</th>
                                             <th>Role</th>
-                                            <th>Status</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -633,23 +661,11 @@ const AdminDashboard = () => {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <span className={`status-pill ${emp.status === 'Working' ? 'success' : 'danger'}`}>
-                                                        {emp.status}
-                                                    </span>
-                                                </td>
-                                                <td>
                                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                                        {emp.role !== 'Admin' && (
-                                                            <>
-                                                                <button onClick={() => handleToggleEmpStatus(emp.id, emp.status)} className="btn btn-secondary btn-sm">
-                                                                    Status
-                                                                </button>
-                                                                {isAdmin && (
-                                                                    <button onClick={() => handleToggleEmpRole(emp.id, emp.role)} className="btn btn-secondary btn-sm">
-                                                                        {emp.role === 'Secondary Admin' ? 'Demote' : 'Promote'}
-                                                                    </button>
-                                                                )}
-                                                            </>
+                                                        {emp.role !== 'Admin' && isAdmin && (
+                                                            <button onClick={() => handleToggleEmpRole(emp.id, emp.role)} className="btn btn-secondary btn-sm">
+                                                                {emp.role === 'Secondary Admin' ? 'Demote' : 'Promote'}
+                                                            </button>
                                                         )}
                                                         {isAdmin && (
                                                             <button onClick={() => handleResetPassword(emp.id)} className="btn btn-secondary btn-sm">
@@ -737,71 +753,7 @@ const AdminDashboard = () => {
                     </div>
                 )}
 
-                {/* TEMPLATES TAB */}
-                {activeTab === 'templates' && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '32px' }}>
-                        {/* List */}
-                        <section className="glass-card" style={{ flex: 1 }}>
-                            <h3 style={{ marginBottom: '20px' }}>Blueprints & Checklists</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {checklistTemplates.map(temp => (
-                                    <div 
-                                        key={temp.id} 
-                                        style={{
-                                            padding: '16px',
-                                            background: 'var(--bg-primary)',
-                                            border: '1px solid var(--border-color)',
-                                            borderRadius: '12px',
-                                            textAlign: 'left'
-                                        }}
-                                    >
-                                        <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{temp.name}</h4>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                            {temp.tasks.map((task, i) => (
-                                                <span key={i} className="status-pill info" style={{ fontSize: '12px' }}>{task}</span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                                {checklistTemplates.length === 0 && (
-                                    <p style={{ color: 'var(--text-secondary)' }}>No templates saved yet.</p>
-                                )}
-                            </div>
-                        </section>
 
-                        {/* Create Form */}
-                        <section className="glass-card" style={{ height: 'fit-content' }}>
-                            <h3 style={{ marginBottom: '20px' }}>Save New Template</h3>
-                            <form onSubmit={handleCreateTemplate}>
-                                <div className="form-group">
-                                    <label className="form-label">Template Name</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        className="form-input" 
-                                        placeholder="e.g. Residential Project Phase 1"
-                                        value={newTemplateName}
-                                        onChange={e => setNewTemplateName(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group" style={{ marginBottom: '24px' }}>
-                                    <label className="form-label">Checklist Items (comma-separated)</label>
-                                    <textarea 
-                                        required 
-                                        rows="4"
-                                        className="form-textarea" 
-                                        placeholder="e.g. Site Survey, Client Briefing, Rough Drafts, Final Approvals"
-                                        value={newTemplateTasks}
-                                        onChange={e => setNewTemplateTasks(e.target.value)}
-                                    />
-                                </div>
-                                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                                    Save Template
-                                </button>
-                            </form>
-                        </section>
-                    </div>
-                )}
 
                 {/* SITE VISITS LOG TAB */}
                 {activeTab === 'visits' && (
@@ -984,20 +936,6 @@ const AdminDashboard = () => {
                                         onChange={e => setProjStartDate(e.target.value)}
                                     />
                                 </div>
-                                <div className="form-group" style={{ marginBottom: '24px' }}>
-                                    <label className="form-label">Assign Team Members (Hold Cmd/Ctrl to multi-select)</label>
-                                    <select 
-                                        multiple 
-                                        className="form-select"
-                                        style={{ height: '100px' }}
-                                        value={assignedEmps}
-                                        onChange={e => setAssignedEmps(Array.from(e.target.selectedOptions, option => option.value))}
-                                    >
-                                        {employees.filter(emp => emp.role !== 'Admin').map(emp => (
-                                            <option key={emp.id} value={emp.id}>{emp.name} ({emp.designation})</option>
-                                        ))}
-                                    </select>
-                                </div>
                                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                                     <button type="button" onClick={() => setShowProjModal(false)} className="btn btn-secondary">
                                         Cancel
@@ -1017,7 +955,7 @@ const AdminDashboard = () => {
                         <div className="modal-content" style={{ maxWidth: '600px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                 <h3>Manage Project Checklist</h3>
-                                <button onClick={() => setShowChecklistModal(false)} className="btn btn-secondary btn-sm">Close</button>
+                                <button onClick={() => { setShowChecklistModal(false); loadDashboard(); }} className="btn btn-secondary btn-sm">Close</button>
                             </div>
                             
                             {/* Current Checklist */}
@@ -1053,27 +991,41 @@ const AdminDashboard = () => {
                             <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
 
                             {/* Apply Template */}
-                            <form onSubmit={handleLoadTemplateToChecklist}>
-                                <div className="form-group">
-                                    <label className="form-label">Apply Existing Checklist Template</label>
-                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                        <select 
-                                            className="form-select"
-                                            style={{ flex: 1 }}
-                                            value={selectedTemplateId}
-                                            onChange={e => setSelectedTemplateId(e.target.value)}
-                                        >
-                                            <option value="">-- Choose Template --</option>
-                                            {checklistTemplates.map(temp => (
-                                                <option key={temp.id} value={temp.id}>{temp.name} ({temp.tasks.length} tasks)</option>
-                                            ))}
-                                        </select>
-                                        <button type="submit" className="btn btn-success" disabled={!selectedTemplateId}>
-                                            Apply Template
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
+                            {(() => {
+                                const suggestedTasks = [];
+                                checklistTemplates.forEach(temp => {
+                                    if (temp.tasks) {
+                                        temp.tasks.forEach(task => {
+                                            if (!suggestedTasks.includes(task)) {
+                                                suggestedTasks.push(task);
+                                            }
+                                        });
+                                    }
+                                });
+                                return (
+                                    <form onSubmit={handleApplySuggestedTask}>
+                                        <div className="form-group">
+                                            <label className="form-label">Apply Existing Checklist Template</label>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <select 
+                                                    className="form-select"
+                                                    style={{ flex: 1 }}
+                                                    value={selectedSuggestedTask}
+                                                    onChange={e => setSelectedSuggestedTask(e.target.value)}
+                                                >
+                                                    <option value="">-- Choose Template --</option>
+                                                    {suggestedTasks.map((task, idx) => (
+                                                        <option key={idx} value={task}>{task}</option>
+                                                    ))}
+                                                </select>
+                                                <button type="submit" className="btn btn-success" disabled={!selectedSuggestedTask}>
+                                                    Apply Template
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}
