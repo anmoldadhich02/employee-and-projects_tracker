@@ -21,7 +21,7 @@ const Login = () => {
         try {
             await login(email, password);
         } catch (err) {
-            setError(err.message || 'Invalid email or password');
+            setError(err.message || 'Invalid name or password');
         } finally {
             setLoading(false);
         }
@@ -33,8 +33,8 @@ const Login = () => {
                 .login-page-container {
                     --ink: #2A2630;
                     --ink-soft: #6B6570;
-                    --red: #C2202C;
-                    --red-deep: #921A22;
+                    --red: #cc0501;
+                    --red-deep: #A30401;
                     --stone: #F4F0EA;
                     --stone-line: #E2DBD0;
                     --wood: #B98A57;
@@ -280,23 +280,6 @@ const Login = () => {
                     border-bottom-color: var(--red);
                 }
 
-                .login-page-container .row-end {
-                    display: flex;
-                    justify-content: flex-end;
-                    margin-bottom: 30px;
-                }
-
-                .login-page-container .row-end a {
-                    font-size: 12.5px;
-                    color: var(--red);
-                    text-decoration: none;
-                    font-weight: 500;
-                }
-
-                .login-page-container .row-end a:hover {
-                    text-decoration: underline;
-                }
-
                 .login-page-container .btn-signin {
                     width: 100%;
                     border: none;
@@ -323,23 +306,6 @@ const Login = () => {
                 .login-page-container .btn-signin:focus-visible {
                     outline: 2px solid var(--ink);
                     outline-offset: 3px;
-                }
-
-                .login-page-container .seed {
-                    margin-top: 28px;
-                    padding: 12px 14px;
-                    background: var(--stone);
-                    border: 1px solid var(--stone-line);
-                    border-radius: 6px;
-                    font-family: 'IBM Plex Mono', monospace;
-                    font-size: 11.5px;
-                    color: var(--ink-soft);
-                    line-height: 1.6;
-                }
-
-                .login-page-container .seed b {
-                    color: var(--ink);
-                    font-weight: 500;
                 }
 
                 /* ---------- RESPONSIVE ---------- */
@@ -409,7 +375,6 @@ const Login = () => {
 
                         <div className="form-head">
                             <h1>Sign in to your workspace</h1>
-                            <p style={{ marginTop: '4px' }}>Enter your details below to access your account.</p>
                         </div>
 
                         {error && (
@@ -430,11 +395,11 @@ const Login = () => {
 
                         <form onSubmit={handleSubmit}>
                             <div className="field">
-                                <label>Email Address</label>
+                                <label>Candidate Name</label>
                                 <input 
-                                    type="email" 
+                                    type="text" 
                                     required 
-                                    placeholder="admin@lyvedezine.com"
+                                    placeholder="Enter candidate name"
                                     value={email} 
                                     onChange={e => setEmail(e.target.value)} 
                                 />
@@ -451,10 +416,6 @@ const Login = () => {
                                 />
                             </div>
 
-                            <div className="row-end">
-                                <a href="#forgot" onClick={(e) => e.preventDefault()}>Forgot password?</a>
-                            </div>
-
                             <button 
                                 type="submit" 
                                 className="btn-signin" 
@@ -464,11 +425,6 @@ const Login = () => {
                             </button>
                         </form>
 
-                        <div className="seed">
-                            Seed Credentials:<br />
-                            Email: <b>admin@archfirm.com</b><br />
-                            Password: <b>admin123</b>
-                        </div>
                     </div>
                 </div>
             </div>

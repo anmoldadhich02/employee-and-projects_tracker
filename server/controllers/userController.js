@@ -1,27 +1,71 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const generateToken = require('../utils/jwtToken');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
+// Configure multer storage for candidate profile images
+const uploadProfileDir = path.join(__dirname, '../uploads/profiles');
+if (!fs.existsSync(uploadProfileDir)) {
+    fs.mkdirSync(uploadProfileDir, { recursive: true });
+}
+
+const profileStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadProfileDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadProfile = multer({
+    storage: profileStorage,
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp|heic/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'image/heic';
+        if (extname && mimetype) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed (JPEG, PNG, GIF, WebP)'), false);
+        }
+    },
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+const getLocalDateString = (d = new Date()) => {
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${da}`;
+};
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        const result = await pool.query(
+            'SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(name) = LOWER($1)',
+            [email]
+        );
         if (result.rows.length === 0) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid name or password' });
         }
 
         const user = result.rows[0];
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid name or password' });
         }
 
         // Set user status to Working in the database
         await pool.query('UPDATE users SET status = $1 WHERE id = $2', ['Working', user.id]);
 
         // Attendance auto-login logic
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const existingAttendance = await pool.query(
             'SELECT * FROM attendance WHERE employee_id = $1 AND date = $2',
             [user.id, today]
@@ -29,13 +73,13 @@ const loginUser = async (req, res) => {
 
         if (existingAttendance.rows.length === 0) {
             await pool.query(
-                'INSERT INTO attendance (employee_id, date, login_time, worked_seconds) VALUES ($1, $2, NOW(), 0)',
+                'INSERT INTO attendance (employee_id, date, login_time, current_session_start, worked_seconds) VALUES ($1, $2, NOW(), NOW(), 0)',
                 [user.id, today]
             );
         } else if (existingAttendance.rows[0].logout_time !== null) {
-            // Already logged out once today, reset login_time to NOW() and logout_time to NULL to resume work
+            // Already logged out once today, reset current_session_start to NOW() and logout_time to NULL to resume work
             await pool.query(
-                'UPDATE attendance SET login_time = NOW(), logout_time = NULL WHERE id = $1',
+                'UPDATE attendance SET current_session_start = NOW(), logout_time = NULL WHERE id = $1',
                 [existingAttendance.rows[0].id]
             );
         }
@@ -53,6 +97,7 @@ const loginUser = async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            profile_image_url: user.profile_image_url,
             token: generateToken(user.id, user.role),
         });
     } catch (error) {
@@ -63,6 +108,7 @@ const loginUser = async (req, res) => {
 
 const createEmployee = async (req, res) => {
     const { name, email, phone_number, designation, password, role } = req.body;
+    const profile_image_url = req.file ? `/uploads/profiles/${req.file.filename}` : null;
 
     try {
         const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -74,8 +120,8 @@ const createEmployee = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = await pool.query(
-            'INSERT INTO users (name, email, phone_number, designation, password, role) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role',
-            [name, email, phone_number, designation, hashedPassword, role || 'Employee']
+            'INSERT INTO users (name, email, phone_number, designation, password, role, profile_image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, email, role, profile_image_url',
+            [name, email, phone_number, designation, hashedPassword, role || 'Employee', profile_image_url]
         );
 
         res.status(201).json(newUser.rows[0]);
@@ -87,7 +133,7 @@ const createEmployee = async (req, res) => {
 
 const getEmployees = async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, email, phone_number, designation, role, status FROM users ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, name, email, phone_number, designation, role, status, profile_image_url FROM users ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         res.status(500).send('Server Error');
@@ -115,15 +161,16 @@ const logoutUser = async (req, res) => {
         }
 
         // Finalize attendance for today
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateString();
         const attRes = await pool.query(
-            'SELECT login_time FROM attendance WHERE employee_id = $1 AND date = $2',
+            'SELECT current_session_start, login_time FROM attendance WHERE employee_id = $1 AND date = $2',
             [req.user.id, today]
         );
 
         if (attRes.rows.length > 0) {
-            const loginTime = new Date(attRes.rows[0].login_time);
-            const currentSessionSeconds = Math.round((new Date() - loginTime) / 1000);
+            const sessionStartVal = attRes.rows[0].current_session_start || attRes.rows[0].login_time;
+            const sessionStartTime = new Date(sessionStartVal);
+            const currentSessionSeconds = Math.round((new Date() - sessionStartTime) / 1000);
             await pool.query(
                 'UPDATE attendance SET logout_time = NOW(), worked_seconds = COALESCE(worked_seconds, 0) + $1 WHERE employee_id = $2 AND date = $3',
                 [currentSessionSeconds, req.user.id, today]
@@ -241,7 +288,10 @@ const getDashboardStats = async (req, res) => {
 
         // 2. Employees Currently Working Count
         const workingCountQuery = await pool.query(
-            "SELECT COUNT(DISTINCT employee_id) FROM attendance WHERE date = CURRENT_DATE AND logout_time IS NULL"
+            `SELECT COUNT(DISTINCT a.employee_id) 
+             FROM attendance a
+             JOIN users u ON a.employee_id = u.id
+             WHERE a.date = CURRENT_DATE AND a.logout_time IS NULL AND u.role != 'Admin'`
         );
         const workingCount = parseInt(workingCountQuery.rows[0].count);
 
@@ -249,12 +299,13 @@ const getDashboardStats = async (req, res) => {
         const totalHoursQuery = await pool.query(
             `SELECT COALESCE(SUM(
                 CASE 
-                    WHEN logout_time IS NULL THEN COALESCE(worked_seconds, 0) + EXTRACT(EPOCH FROM (NOW() - login_time))
-                    ELSE COALESCE(worked_seconds, 0)
+                    WHEN a.logout_time IS NULL THEN COALESCE(a.worked_seconds, 0) + EXTRACT(EPOCH FROM (NOW() - COALESCE(a.current_session_start, a.login_time)))
+                    ELSE COALESCE(a.worked_seconds, 0)
                 END
             ), 0) / 3600.0 AS total_hours
-            FROM attendance
-            WHERE date = CURRENT_DATE`
+            FROM attendance a
+            JOIN users u ON a.employee_id = u.id
+            WHERE a.date = CURRENT_DATE AND u.role != 'Admin'`
         );
         const totalHours = parseFloat(parseFloat(totalHoursQuery.rows[0].total_hours).toFixed(2));
 
@@ -266,22 +317,24 @@ const getDashboardStats = async (req, res) => {
 
         // 5. Completed Tasks
         const completedTasksQuery = await pool.query(
-            "SELECT COUNT(*) FROM tasks WHERE status = 'Completed'"
+            "SELECT COUNT(*) FROM subtasks WHERE status = 'Completed'"
         );
         const completedTasksCount = parseInt(completedTasksQuery.rows[0].count);
 
         // 6. Live Employee Status panel list
         const liveEmployeesQuery = await pool.query(
-            `SELECT u.id, u.name, u.email, u.designation, u.role, u.status,
+            `SELECT u.id, u.name, u.email, u.designation, u.role, u.status, u.profile_image_url,
                     a.login_time,
                     a.logout_time,
                     a.worked_seconds,
+                    a.current_session_start,
                     tl.start_time AS active_timer_start,
                     p.name AS current_project_name,
                     (
-                        SELECT task_name FROM tasks 
-                        WHERE project_id = tl.project_id AND status = 'In Progress' 
-                        ORDER BY created_at DESC LIMIT 1
+                        SELECT s.subtask_name FROM subtasks s
+                        JOIN tasks t ON s.task_id = t.id
+                        WHERE t.project_id = tl.project_id AND s.status = 'In Progress' 
+                        ORDER BY s.created_at DESC LIMIT 1
                     ) AS current_task_name
              FROM users u
              LEFT JOIN attendance a ON u.id = a.employee_id AND a.date = CURRENT_DATE
@@ -297,7 +350,8 @@ const getDashboardStats = async (req, res) => {
             if (emp.login_time) {
                 let totalSeconds = emp.worked_seconds || 0;
                 if (!emp.logout_time) {
-                    totalSeconds += Math.round((new Date() - new Date(emp.login_time)) / 1000);
+                    const sessionStartVal = emp.current_session_start || emp.login_time;
+                    totalSeconds += Math.round((new Date() - new Date(sessionStartVal)) / 1000);
                 }
                 shiftHours = parseFloat((totalSeconds / 3600).toFixed(2));
             }
@@ -308,6 +362,7 @@ const getDashboardStats = async (req, res) => {
                 designation: emp.designation,
                 role: emp.role,
                 status: emp.status,
+                profile_image_url: emp.profile_image_url,
                 is_working: isWorking,
                 current_project: emp.current_project_name || null,
                 current_task: emp.current_task_name || null,
@@ -397,6 +452,63 @@ const getDashboardStats = async (req, res) => {
     }
 };
 
+// @desc    Delete an employee and clean up all their files and cascaded references
+// @route   DELETE /api/users/:id
+// @access  Protected (Admin only)
+const deleteEmployee = async (req, res) => {
+    const { id } = req.params;
+
+    // Check if the user is attempting to delete themselves
+    if (req.user.id === parseInt(id)) {
+        return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+
+    try {
+        // Find if user exists
+        const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userToDelete = userCheck.rows[0];
+        // Protect Owner Admins from being deleted if necessary
+        if (userToDelete.role === 'Admin') {
+            return res.status(403).json({ message: 'Owner Admins cannot be deleted' });
+        }
+
+        // 1. Fetch user's site visits to get and delete their photos from disk
+        const userVisits = await pool.query('SELECT photo_url FROM site_visits WHERE employee_id = $1', [id]);
+        for (const row of userVisits.rows) {
+            let photos = [];
+            try {
+                photos = row.photo_url ? (Array.isArray(row.photo_url) ? row.photo_url : JSON.parse(row.photo_url)) : [];
+            } catch (_) {}
+            for (const url of photos) {
+                const filePath = path.join(__dirname, '..', url);
+                if (fs.existsSync(filePath)) {
+                    try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink site visit photo:', e.message); }
+                }
+            }
+        }
+
+        // 2. Delete physical profile image
+        if (userToDelete.profile_image_url) {
+            const profilePath = path.join(__dirname, '..', userToDelete.profile_image_url);
+            if (fs.existsSync(profilePath)) {
+                try { fs.unlinkSync(profilePath); } catch (e) { console.error('Failed to unlink profile image:', e.message); }
+            }
+        }
+
+        // 3. Perform database delete
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+
+        res.json({ message: `Staff member ${userToDelete.name} deleted successfully` });
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send('Server Error');
+    }
+};
+
 module.exports = { 
     loginUser, 
     createEmployee, 
@@ -405,5 +517,7 @@ module.exports = {
     updateUserRole,
     updateUserStatus,
     resetUserPassword,
-    getDashboardStats
+    getDashboardStats,
+    deleteEmployee,
+    uploadProfile
 };

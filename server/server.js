@@ -11,6 +11,7 @@ process.stderr.write = (chunk) => {
 
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 const initializeDatabase = require('./config/dbInit');
 
@@ -24,6 +25,7 @@ initializeDatabase();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Cron jobs
 console.log('Loading cron jobs...');
@@ -45,6 +47,8 @@ console.log('Loading siteVisitRoutes...');
 app.use('/api/site-visits', require('./routes/siteVisitRoutes'));
 console.log('Loading announcementRoutes...');
 app.use('/api/announcements', require('./routes/announcementRoutes'));
+console.log('Loading personalTaskRoutes...');
+app.use('/api/personal-tasks', require('./routes/personalTaskRoutes'));
 console.log('Loading reportRoutes...');
 app.use('/api/reports', require('./routes/reportRoutes'));
 console.log('All routes loaded successfully.');

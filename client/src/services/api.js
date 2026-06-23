@@ -14,4 +14,16 @@ API.interceptors.request.use((req) => {
     return req;
 });
 
+// Interceptor to handle 401 responses globally
+API.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            localStorage.removeItem('userInfo');
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default API;

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { updateSiteVisit, deleteSiteVisit } = require('../controllers/siteVisitController');
-const { protect, admin } = require('../middlewares/authMiddleware');
+const { updateSiteVisit, deleteSiteVisit, upload } = require('../controllers/siteVisitController');
+const { protect } = require('../middlewares/authMiddleware');
 
 router.route('/:id')
-      .put(protect, admin, updateSiteVisit)
-      .delete(protect, admin, deleteSiteVisit);
+      .put(protect, upload.array('photos', 10), updateSiteVisit)
+      .delete(protect, deleteSiteVisit);
 
 module.exports = router;

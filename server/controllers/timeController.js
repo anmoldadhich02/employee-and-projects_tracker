@@ -115,7 +115,7 @@ const getActiveProjectTimer = async (req, res) => {
 const getTodayShiftSeconds = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT login_time, logout_time, worked_seconds FROM attendance 
+            `SELECT login_time, logout_time, worked_seconds, current_session_start FROM attendance 
              WHERE employee_id = $1 AND date = CURRENT_DATE`,
             [req.user.id]
         );
@@ -127,14 +127,16 @@ const getTodayShiftSeconds = async (req, res) => {
         
         let totalSeconds = row.worked_seconds || 0;
         if (isLoggedIn) {
-            totalSeconds += Math.round((new Date() - new Date(row.login_time)) / 1000);
+            const sessionStartVal = row.current_session_start || row.login_time;
+            totalSeconds += Math.round((new Date() - new Date(sessionStartVal)) / 1000);
         }
         
         res.json({
             total_seconds: totalSeconds,
             login_time: row.login_time,
             worked_seconds: row.worked_seconds || 0,
-            is_logged_in: isLoggedIn
+            is_logged_in: isLoggedIn,
+            current_session_start: row.current_session_start || row.login_time
         });
     } catch (error) {
         console.error(error.message);
@@ -236,7 +238,7 @@ const getProjectEmployeeBreakdown = async (req, res) => {
     const { projectId } = req.params;
     try {
         const result = await pool.query(
-            `SELECT tl.employee_id, u.name AS employee_name,
+            `SELECT tl.employee_id, COALESCE(u.name, 'Deleted Employee') AS employee_name,
                     SUM(
                         CASE 
                             WHEN tl.end_time IS NULL THEN EXTRACT(EPOCH FROM (NOW() - tl.start_time)) / 60
@@ -244,7 +246,7 @@ const getProjectEmployeeBreakdown = async (req, res) => {
                         END
                     ) AS total_minutes
              FROM time_logs tl
-             JOIN users u ON tl.employee_id = u.id
+             LEFT JOIN users u ON tl.employee_id = u.id
              WHERE tl.project_id = $1
              GROUP BY tl.employee_id, u.name
              ORDER BY total_minutes DESC`,
