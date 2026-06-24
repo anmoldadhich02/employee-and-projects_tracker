@@ -35,7 +35,7 @@ const initializeDatabase = async () => {
     }
 
     // Seed default administrator if not present
-    const adminEmail = 'admin@archfirm.com';
+    const adminEmail = 'yash.d@live-design.in';
     const checkAdmin = await pool.query('SELECT * FROM users WHERE email = $1', [adminEmail]);
 
     if (checkAdmin.rows.length === 0) {
@@ -46,10 +46,10 @@ const initializeDatabase = async () => {
       await pool.query(
         `INSERT INTO users (name, email, phone_number, designation, password, role, status) 
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        ['Owner Admin', adminEmail, '1234567890', 'Owner', hashedPassword, 'Admin', 'Working']
+        ['Yash', adminEmail, '1234567890', 'Owner', hashedPassword, 'Admin', 'Working']
       );
       console.log('Default Admin user seeded successfully.');
-      console.log('Email: admin@archfirm.com | Password: admin123');
+      console.log('Email: yash.d@live-design.in | Password: admin123');
     } else {
       console.log('Admin user already exists.');
     }

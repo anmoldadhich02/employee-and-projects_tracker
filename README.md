@@ -89,7 +89,7 @@ npm run dev
 
 Open `http://localhost:5173` in your browser. You can log in using the pre-seeded Owner Admin credentials:
 
-* **Candidate Name:** `Owner Admin`  *(or email: `admin@archfirm.com`)*
+* **Candidate Name:** `Yash`  *(or email: `yash.d@live-design.in`)*
 * **Password:** `admin123`
 
 You can then register new employees, assign designations, and configure checklists from the Admin dashboard.
