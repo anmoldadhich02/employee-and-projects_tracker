@@ -500,18 +500,35 @@ const deleteEmployee = async (req, res) => {
 const openNetworkFolder = async (req, res) => {
     console.log('[openNetworkFolder] Endpoint hit!');
     try {
-        const folderPath = '/Users/anmoldadhich/Desktop/network folder';
+        const folderPath = process.env.NETWORK_FOLDER_PATH || '/Users/anmoldadhich/Desktop/network folder';
         console.log(`[openNetworkFolder] Path: ${folderPath}`);
-        if (!fs.existsSync(folderPath)) {
-            console.log('[openNetworkFolder] Path does not exist. Creating...');
-            fs.mkdirSync(folderPath, { recursive: true });
-            console.log('[openNetworkFolder] Path created.');
-        } else {
-            console.log('[openNetworkFolder] Path exists.');
+        
+        // Wrap folder check/creation in a separate try-catch so it doesn't block opening
+        try {
+            const isNetworkPath = folderPath.startsWith('\\\\') || folderPath.startsWith('//');
+            if (!isNetworkPath && !fs.existsSync(folderPath)) {
+                console.log('[openNetworkFolder] Path does not exist. Creating...');
+                fs.mkdirSync(folderPath, { recursive: true });
+                console.log('[openNetworkFolder] Path created.');
+            }
+        } catch (dirError) {
+            console.warn('[openNetworkFolder] Warning during directory check/creation:', dirError.message);
         }
         
-        console.log('[openNetworkFolder] Executing command: open');
-        exec(`open "${folderPath}"`, (error, stdout, stderr) => {
+        let command;
+        if (process.platform === 'win32') {
+            // Windows expects backslashes for path
+            const winPath = folderPath.replace(/\//g, '\\');
+            // Use 'start' command, which is a shell builtin and returns exit code 0 when successful
+            command = `start "" "${winPath}"`;
+        } else if (process.platform === 'darwin') {
+            command = `open "${folderPath}"`;
+        } else {
+            command = `xdg-open "${folderPath}"`;
+        }
+
+        console.log(`[openNetworkFolder] Executing command: ${command}`);
+        exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error(`[openNetworkFolder] Failed to open folder error: ${error.message}`);
                 console.error(`[openNetworkFolder] stderr: ${stderr}`);

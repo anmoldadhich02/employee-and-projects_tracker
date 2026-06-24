@@ -1,10 +1,5 @@
-const { Pool, types } = require('pg');
+const { Pool } = require('pg');
 require('dotenv').config();
-
-// Force timestamp without timezone (type OID 1114) to be parsed as UTC
-types.setTypeParser(1114, (stringValue) => {
-  return new Date(stringValue.replace(' ', 'T') + 'Z');
-});
 
 console.log(`[DB Config] user=${process.env.DB_USER}, host=${process.env.DB_HOST}, database=${process.env.DB_NAME}, port=${process.env.DB_PORT}`);
 
