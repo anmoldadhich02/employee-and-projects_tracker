@@ -108,7 +108,7 @@ a:hover {
 
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--accent-primary); /* Solid Crimson Red */
+  background: #443F46; /* HEX: #443F46, RGB: 68, 63, 70 */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -137,12 +137,14 @@ a:hover {
   align-items: center;
   gap: 12px;
   margin-bottom: 24px;
+  width: 100%;
 }
 .brand img {
-  background: #FFFFFF;
+  background: #443F46; /* Matches sidebar background */
   padding: 10px 16px;
   border-radius: 6px;
-  width: 140px !important;
+  width: 100% !important;
+  height: auto !important;
   display: block;
 }
 .brand-logo {

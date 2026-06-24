@@ -1,5 +1,13 @@
 const pool = require('../config/db');
 
+const getLocalDateString = (d = new Date()) => {
+    const yr = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${da}`;
+};
+
+
 // @desc    Switch to working on a project. Stops previous project timer if any, starts new one.
 // @route   POST /api/time/switch
 // @access  Protected (Employee)
@@ -114,10 +122,11 @@ const getActiveProjectTimer = async (req, res) => {
 // @access  Protected
 const getTodayShiftSeconds = async (req, res) => {
     try {
+        const today = getLocalDateString();
         const result = await pool.query(
             `SELECT login_time, logout_time, worked_seconds, current_session_start FROM attendance 
-             WHERE employee_id = $1 AND date = CURRENT_DATE`,
-            [req.user.id]
+             WHERE employee_id = $1 AND date = $2`,
+            [req.user.id, today]
         );
         if (result.rows.length === 0) {
             return res.json({ total_seconds: 0, login_time: null, worked_seconds: 0, is_logged_in: false });
@@ -149,6 +158,7 @@ const getTodayShiftSeconds = async (req, res) => {
 // @access  Protected
 const getMyProjectsToday = async (req, res) => {
     try {
+        const today = getLocalDateString();
         const result = await pool.query(
             `SELECT tl.project_id, p.name AS project_name,
                     SUM(
@@ -159,10 +169,10 @@ const getMyProjectsToday = async (req, res) => {
                     ) AS total_minutes
              FROM time_logs tl
              JOIN projects p ON tl.project_id = p.id
-             WHERE tl.employee_id = $1 AND tl.start_time::date = CURRENT_DATE
+             WHERE tl.employee_id = $1 AND (tl.start_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = $2
              GROUP BY tl.project_id, p.name
              ORDER BY total_minutes DESC`,
-            [req.user.id]
+            [req.user.id, today]
         );
         res.json(result.rows);
     } catch (error) {

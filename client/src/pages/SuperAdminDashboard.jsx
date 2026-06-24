@@ -3,8 +3,9 @@ import AuthContext from '../context/AuthContext';
 import API from '../services/api';
 import logoImg from '../assets/logo.png';
 
-const EmployeeDashboard = () => {
+const SuperAdminDashboard = () => {
     const { user, logout } = useContext(AuthContext);
+    const isAdmin = user?.role === 'Admin'; // Only Owner Admin has full privileges
     
     // Core states
     const [projects, setProjects] = useState([]);
@@ -45,7 +46,7 @@ const EmployeeDashboard = () => {
     const [visitLoading, setVisitLoading] = useState(false);
     const [visitPhotos, setVisitPhotos] = useState([]);
 
-    // Site Visit Edit Modal (Same as Admin)
+    // Site Visit Edit Modal
     const [showVisitModal, setShowVisitModal] = useState(false);
     const [editingVisit, setEditingVisit] = useState(null);
     const [editVisitDate, setEditVisitDate] = useState('');
@@ -63,6 +64,7 @@ const EmployeeDashboard = () => {
     const [tickingTasks, setTickingTasks] = useState([]);
     const [editingTaskId, setEditingTaskId] = useState(null);
     const [editingTaskTitle, setEditingTaskTitle] = useState('');
+    
     // Announcements tab state
     const [annProjectId, setAnnProjectId] = useState('');
     const [annContent, setAnnContent] = useState('');
@@ -87,7 +89,7 @@ const EmployeeDashboard = () => {
     const [checklistTemplates, setChecklistTemplates] = useState([]);
     const [projectSearch, setProjectSearch] = useState('');
 
-    // Site Visit Export Filters (Same as Admin)
+    // Site Visit Export Filters
     const [svProjectId, setSvProjectId] = useState('');
     const [svStartDate, setSvStartDate] = useState(() => {
         const d = new Date();
@@ -97,6 +99,29 @@ const EmployeeDashboard = () => {
         return new Date().toISOString().split('T')[0];
     });
     const [showSvOptions, setShowSvOptions] = useState(false);
+
+    // Admin Specific States
+    const [employees, setEmployees] = useState([]);
+    const [empName, setEmpName] = useState('');
+    const [empEmail, setEmpEmail] = useState('');
+    const [empPhone, setEmpPhone] = useState('');
+    const [empDesignation, setEmpDesignation] = useState('');
+    const [empPassword, setEmpPassword] = useState('');
+    const [empRole, setEmpRole] = useState('Employee');
+    const [empProfileImage, setEmpProfileImage] = useState(null);
+    const [previewPhoto, setPreviewPhoto] = useState(null);
+    const [showEmpTabAttOptions, setShowEmpTabAttOptions] = useState(false);
+    const [showEmpPassword, setShowEmpPassword] = useState(false);
+
+    const [attStartDate, setAttStartDate] = useState(() => {
+        const d = new Date();
+        return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [attEndDate, setAttEndDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
+    const [attEmployeeId, setAttEmployeeId] = useState('');
+    const [showAttOptions, setShowAttOptions] = useState(false);
 
     // Auto-refresh (runs silently in the background)
     const REFRESH_INTERVAL = 15; // seconds
@@ -108,7 +133,7 @@ const EmployeeDashboard = () => {
         selectedProjIdRef.current = selectedProjectId;
     }, [selectedProjectId]);
 
-    // Full live-data refresh — called on mount and on the auto-refresh interval
+    // Full live-data refresh
     const refreshLiveData = async (projId) => {
         await loadDashboard();
         await fetchTodayTime();
@@ -119,6 +144,7 @@ const EmployeeDashboard = () => {
 
     useEffect(() => {
         fetchProjects();
+        loadEmployees();
         loadTemplates();
         fetchActiveTimer();
         fetchTodayTime();
@@ -138,7 +164,7 @@ const EmployeeDashboard = () => {
         };
     }, []);
 
-    // Refresh tasks and details when selected project changes (for checklist/visits/announcements)
+    // Refresh tasks and details when selected project changes
     useEffect(() => {
         if (selectedProjectId) {
             fetchProjectDetails(selectedProjectId);
@@ -242,16 +268,23 @@ const EmployeeDashboard = () => {
         }
     };
 
+    const loadEmployees = async () => {
+        try {
+            const res = await API.get('/users');
+            setEmployees(res.data);
+        } catch (e) {
+            console.error('Failed to load employees list:', e);
+        }
+    };
+
     const fetchActiveTimer = async () => {
         try {
             const res = await API.get('/time/active');
             const active = res.data;
             setActiveLog(active);
             if (active && active.project_id) {
-                // Coerce to string so it matches <option value={p.id}> which React stringifies
                 const projIdStr = String(active.project_id);
                 setSelectedProjectId(projIdStr);
-                // Also load the project's details (tasks, visits, announcements)
                 fetchProjectDetails(projIdStr);
             }
         } catch (e) {
@@ -264,11 +297,9 @@ const EmployeeDashboard = () => {
             const res = await API.get('/time/today');
             const { total_seconds, login_time, worked_seconds, is_logged_in, current_session_start } = res.data;
             if (login_time) setLoginTime(login_time);
-            // Use current_session_start for measuring the live session; fall back to login_time
             setCurrentSessionStart(current_session_start || login_time || null);
             setWorkedSecondsBase(worked_seconds || 0);
             setIsLoggedIn(is_logged_in || false);
-            // If already logged out just show the stored total
             setTotalSecondsToday(is_logged_in ? (worked_seconds || 0) : (total_seconds || 0));
         } catch (e) {
             console.error('Failed to fetch today time', e);
@@ -286,19 +317,16 @@ const EmployeeDashboard = () => {
 
     const fetchProjectDetails = async (projId) => {
         try {
-            // Tasks
             const tasksRes = await API.get(`/projects/${projId}/tasks`);
             setTasks(tasksRes.data);
 
-            // Announcements
             const annRes = await API.get(`/projects/${projId}/announcements`);
             setAnnouncements(annRes.data);
 
-            // Site visits
             const visitRes = await API.get(`/projects/${projId}/site-visits`);
             setSiteVisits(visitRes.data);
         } catch (e) {
-            console.error(e);
+            console.error('Failed to load project details:', e);
         }
     };
 
@@ -312,8 +340,6 @@ const EmployeeDashboard = () => {
     };
 
     // --- Shift Timer ---
-    // Ticks from currentSessionStart and adds workedSecondsBase (previous sessions today)
-    // Only runs while isLoggedIn === true
     useEffect(() => {
         if (timerInterval.current) clearInterval(timerInterval.current);
 
@@ -324,13 +350,11 @@ const EmployeeDashboard = () => {
                 return workedSecondsBase + sessionSecs;
             };
 
-            // Set immediately then tick every second
             setTotalSecondsToday(getElapsed());
             timerInterval.current = setInterval(() => {
                 setTotalSecondsToday(getElapsed());
             }, 1000);
         } else {
-            // Logged out — show static total (workedSecondsBase already has full day)
             setTotalSecondsToday(workedSecondsBase);
         }
 
@@ -339,12 +363,11 @@ const EmployeeDashboard = () => {
         };
     }, [isLoggedIn, currentSessionStart, workedSecondsBase]);
 
-    // --- Project Timer (ticks from activeLog.start_time) ---
+    // --- Project Timer ---
     useEffect(() => {
         if (projectTimerInterval.current) clearInterval(projectTimerInterval.current);
 
         if (activeLog && activeLog.start_time) {
-            // Calculate immediately
             setProjectTimerSeconds(Math.floor((Date.now() - new Date(activeLog.start_time).getTime()) / 1000));
 
             projectTimerInterval.current = setInterval(() => {
@@ -360,7 +383,6 @@ const EmployeeDashboard = () => {
     }, [activeLog]);
 
     // --- Handlers ---
-
     const handleDropdownProjectChange = async (projectId) => {
         setSelectedProjectId(projectId);
         if (!projectId) {
@@ -497,7 +519,6 @@ const EmployeeDashboard = () => {
             return;
         }
         try {
-            // Strip DB ids before saving — only keep task_name, subtasks (subtask_name + sheet_no)
             const cleanedTasks = projectTasks.map(cat => ({
                 task_name: cat.task_name,
                 subtasks: (cat.subtasks || []).map(sub => ({
@@ -570,10 +591,8 @@ const EmployeeDashboard = () => {
             setViewingAnn(res.data);
             setShowAnnModal(true);
 
-            // Mark as read first
             await API.post(`/announcements/${annId}/read`);
 
-            // Fetch read receipts
             const readsRes = await API.get(`/announcements/${annId}/reads`);
             setModalReads(readsRes.data);
             setShowModalReads(false);
@@ -639,7 +658,6 @@ const EmployeeDashboard = () => {
             });
             setVisitMom('');
             setVisitPhotos([]);
-            // Clear the file input visually
             const fileInput = document.getElementById('visit-photo-input');
             if (fileInput) fileInput.value = '';
             alert('Site visit logged successfully.');
@@ -721,13 +739,108 @@ const EmployeeDashboard = () => {
             setNewProjLocation('');
             setNewProjContact('');
             fetchProjects();
+            loadDashboard();
         } catch (e) {
             alert('Failed to create project');
         }
     };
 
-    // --- Formatting helpers ---
+    // --- Admin-only Staff Handlers ---
+    const handleCreateEmployee = async (e) => {
+        e.preventDefault();
+        try {
+            const formData = new FormData();
+            formData.append('name', empName);
+            formData.append('email', empEmail);
+            formData.append('phone_number', empPhone);
+            formData.append('designation', empDesignation);
+            formData.append('password', empPassword);
+            formData.append('role', empRole);
+            if (empProfileImage) {
+                formData.append('profile_image', empProfileImage);
+            }
 
+            await API.post('/users', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            alert('Employee registered successfully!');
+            setEmpName('');
+            setEmpEmail('');
+            setEmpPhone('');
+            setEmpDesignation('');
+            setEmpPassword('');
+            setEmpRole('Employee');
+            setEmpProfileImage(null);
+            
+            const fileInput = document.getElementById('emp-profile-input');
+            if (fileInput) fileInput.value = '';
+
+            loadEmployees();
+            loadDashboard();
+        } catch (e) {
+            alert(e.response?.data?.message || 'Failed to register employee');
+        }
+    };
+
+    const handleToggleEmpRole = async (id, currentRole) => {
+        if (!isAdmin) {
+            alert('Only the owner Admin can change user roles.');
+            return;
+        }
+        const newRole = currentRole === 'Secondary Admin' ? 'Employee' : 'Secondary Admin';
+        const msg = currentRole === 'Secondary Admin' 
+            ? 'Are you sure you want to remove Super Admin privileges?' 
+            : 'Are you sure you want to promote this employee to Super Admin?';
+        
+        if (!window.confirm(msg)) return;
+
+        try {
+            await API.put(`/users/${id}/role`, { role: newRole });
+            alert(`User role updated to ${newRole === 'Secondary Admin' ? 'Super Admin' : 'Employee'}`);
+            loadEmployees();
+        } catch (e) {
+            alert(e.response?.data?.message || 'Failed to change user role');
+        }
+    };
+
+    const handleResetPassword = async (id) => {
+        if (!isAdmin) {
+            alert('Only the owner Admin can reset passwords.');
+            return;
+        }
+        const newPass = window.prompt('Enter new password (minimum 4 characters):');
+        if (newPass === null) return;
+        if (newPass.trim().length < 4) {
+            alert('Password too short!');
+            return;
+        }
+        try {
+            await API.put(`/users/${id}/reset-password`, { password: newPass });
+            alert('Password reset successfully!');
+        } catch (e) {
+            alert('Failed to reset password');
+        }
+    };
+
+    const handleDeleteEmployee = async (id, name) => {
+        if (!isAdmin) {
+            alert('Only the owner Admin can delete staff accounts.');
+            return;
+        }
+        if (!window.confirm(`Are you sure you want to permanently delete staff member ${name}? This action is permanent and will delete their attendance records, time logs, and site visit entries.`)) {
+            return;
+        }
+        try {
+            const res = await API.delete(`/users/${id}`);
+            alert(res.data.message || 'Staff member deleted.');
+            loadEmployees();
+            loadDashboard();
+        } catch (e) {
+            alert(e.response?.data?.message || 'Failed to delete staff member');
+        }
+    };
+
+    // --- Formatting helpers ---
     const formatTime = (totalSecs) => {
         const s = Math.max(0, totalSecs);
         const hrs = Math.floor(s / 3600);
@@ -788,6 +901,11 @@ const EmployeeDashboard = () => {
                     <div className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
                         <span>Overview</span>
+                    </div>
+
+                    <div className={`nav-item ${activeTab === 'employees' ? 'active' : ''}`} onClick={() => setActiveTab('employees')}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span>Employee master</span>
                     </div>
 
                     <div className="nav-section-header">Operations</div>
@@ -938,7 +1056,7 @@ const EmployeeDashboard = () => {
                         </div>
                         <div className="user-details">
                             <span className="user-details-name">{user?.name}</span>
-                            <span className="user-details-role">Architectural Staff</span>
+                            <span className="user-details-role">{user?.role === 'Admin' ? 'Owner Admin' : 'Super Admin'}</span>
                         </div>
                     </div>
                     <button onClick={logout} className="btn-signout">
@@ -959,7 +1077,7 @@ const EmployeeDashboard = () => {
                             </>
                         ) : (
                             <h1 style={{ fontSize: '32px', margin: 0, textTransform: 'capitalize' }}>
-                                {activeTab === 'site-visits' ? 'Site Visits' : activeTab} Management
+                                {activeTab === 'site-visits' ? 'Site Visits' : activeTab === 'employees' ? 'Employee master' : activeTab} Management
                             </h1>
                         )}
                     </div>
@@ -1347,6 +1465,302 @@ const EmployeeDashboard = () => {
                     </>
                 )}
 
+                {/* EMPLOYEE MASTER TAB */}
+                {activeTab === 'employees' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+                        {showEmpTabAttOptions && (
+                            <div 
+                                className="glass-card" 
+                                style={{ 
+                                    padding: '24px', 
+                                    borderColor: 'var(--accent-secondary)', 
+                                    borderRadius: '16px',
+                                    textAlign: 'left',
+                                    boxShadow: 'var(--shadow-md)'
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ fontSize: '24px' }}>📅</span>
+                                        <h3 style={{ margin: 0, color: 'var(--accent-secondary)', fontSize: '20px', fontWeight: '600' }}>
+                                            Export Attendance Log
+                                        </h3>
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowEmpTabAttOptions(false)} 
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ 
+                                            padding: '8px 16px', 
+                                            borderRadius: '8px', 
+                                            border: '1px solid var(--border-color)', 
+                                            background: '#FFFFFF',
+                                            color: 'var(--text-primary)',
+                                            fontWeight: '500',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                                    <div>
+                                        <label className="form-label" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'block' }}>
+                                            Start Date
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            className="form-control" 
+                                            style={{ fontSize: '14px', padding: '10px 14px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                            value={attStartDate} 
+                                            onChange={e => setAttStartDate(e.target.value)} 
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="form-label" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'block' }}>
+                                            End Date
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            className="form-control" 
+                                            style={{ fontSize: '14px', padding: '10px 14px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                            value={attEndDate} 
+                                            onChange={e => setAttEndDate(e.target.value)} 
+                                        />
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <label className="form-label" style={{ fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'block' }}>
+                                        Staff Filter
+                                    </label>
+                                    <select 
+                                        className="form-control" 
+                                        style={{ fontSize: '14px', padding: '10px 14px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                        value={attEmployeeId} 
+                                        onChange={e => setAttEmployeeId(e.target.value)}
+                                    >
+                                        <option value="">All Employees (Multi-sheet Excel)</option>
+                                        {employees.map(emp => (
+                                            <option key={emp.id} value={emp.id}>{emp.name} (ID: {emp.id})</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ 
+                                        width: '100%', 
+                                        padding: '12px', 
+                                        fontSize: '15px', 
+                                        fontWeight: '600', 
+                                        backgroundColor: 'var(--accent-primary)',
+                                        color: '#FFFFFF',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                        handleDownloadReport('attendance', attEmployeeId || null, { startDate: attStartDate, endDate: attEndDate });
+                                    }}
+                                >
+                                    Generate & Download Report
+                                </button>
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                            {/* List */}
+                            <section className="glass-card" style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <h3 style={{ margin: 0 }}>Staff Accounts</h3>
+                                    <button 
+                                        onClick={() => setShowEmpTabAttOptions(true)} 
+                                        className="btn btn-secondary btn-sm"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                    >
+                                        <span>📅</span> Export Attendance Log
+                                    </button>
+                                </div>
+                                <div className="table-container">
+                                    <table className="custom-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Role</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {employees.map(emp => (
+                                                <tr key={emp.id}>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            {emp.profile_image_url ? (
+                                                                <img 
+                                                                    src={`http://localhost:5001${emp.profile_image_url}`} 
+                                                                    alt={emp.name} 
+                                                                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
+                                                                />
+                                                            ) : (
+                                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--accent-primary)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px' }}>
+                                                                    {emp.name ? emp.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                                                                </div>
+                                                            )}
+                                                            <div>
+                                                                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{emp.name}</div>
+                                                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{emp.designation} &bull; {emp.email}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`status-pill ${emp.role === 'Admin' ? 'danger' : emp.role === 'Secondary Admin' ? 'warning' : 'info'}`}>
+                                                            {emp.role === 'Admin' ? 'Owner Admin' : emp.role === 'Secondary Admin' ? 'Super Admin' : 'Employee'}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                                            {emp.role !== 'Admin' && isAdmin && (
+                                                                <button onClick={() => handleToggleEmpRole(emp.id, emp.role)} className="btn btn-secondary btn-sm">
+                                                                    {emp.role === 'Secondary Admin' ? 'Demote' : 'Promote'}
+                                                                </button>
+                                                            )}
+                                                            {isAdmin && (
+                                                                <button onClick={() => handleResetPassword(emp.id)} className="btn btn-secondary btn-sm">
+                                                                    Reset
+                                                                </button>
+                                                            )}
+                                                            {emp.role !== 'Admin' && isAdmin && (
+                                                                <button onClick={() => handleDeleteEmployee(emp.id, emp.name)} className="btn btn-danger btn-sm">
+                                                                    Delete
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            {/* Create form */}
+                            <section className="glass-card" style={{ height: 'fit-content', maxWidth: '600px', width: '100%', margin: '0 auto' }}>
+                                <h3 style={{ marginBottom: '20px' }}>Register New Employee</h3>
+                                <form onSubmit={handleCreateEmployee}>
+                                    <div className="form-group">
+                                        <label className="form-label">Full Name</label>
+                                        <input 
+                                            type="text" 
+                                            required 
+                                            className="form-input"
+                                            value={empName}
+                                            onChange={e => setEmpName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Email Address</label>
+                                        <input 
+                                            type="email" 
+                                            required 
+                                            className="form-input"
+                                            value={empEmail}
+                                            onChange={e => setEmpEmail(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Phone Number</label>
+                                        <input 
+                                            type="text" 
+                                            className="form-input"
+                                            value={empPhone}
+                                            onChange={e => setEmpPhone(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Designation</label>
+                                        <input 
+                                            type="text" 
+                                            className="form-input"
+                                            placeholder="e.g. Lead Architect, Drafter"
+                                            value={empDesignation}
+                                            onChange={e => setEmpDesignation(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Initial Password</label>
+                                        <div style={{ position: 'relative', width: '100%' }}>
+                                            <input 
+                                                type={showEmpPassword ? "text" : "password"} 
+                                                required 
+                                                className="form-input"
+                                                value={empPassword}
+                                                onChange={e => setEmpPassword(e.target.value)}
+                                                style={{ paddingRight: '40px' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowEmpPassword(!showEmpPassword)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    right: '12px',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    color: 'var(--text-secondary)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '4px'
+                                                }}
+                                                title={showEmpPassword ? "Hide password" : "Show password"}
+                                            >
+                                                {showEmpPassword ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                        <circle cx="12" cy="12" r="3"></circle>
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                                                    </svg>
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: '24px' }}>
+                                        <label className="form-label">Role</label>
+                                        <select 
+                                            className="form-select"
+                                            value={empRole}
+                                            onChange={e => setEmpRole(e.target.value)}
+                                        >
+                                            <option value="Employee">Employee (Normal)</option>
+                                            <option value="Secondary Admin">Super Admin (Secondary)</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group" style={{ marginBottom: '24px' }}>
+                                        <label className="form-label">Profile Image (optional)</label>
+                                        <input 
+                                            id="emp-profile-input"
+                                            type="file" 
+                                            accept="image/*"
+                                            className="form-input"
+                                            style={{ padding: '8px 12px', cursor: 'pointer' }}
+                                            onChange={e => setEmpProfileImage(e.target.files[0])}
+                                        />
+                                    </div>
+                                    <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                                        Register Employee
+                                    </button>
+                                </form>
+                            </section>
+                        </div>
+                    </div>
+                )}
+
                 {/* PROJECTS TAB */}
                 {activeTab === 'projects' && (
                     <section className="glass-card">
@@ -1546,7 +1960,7 @@ const EmployeeDashboard = () => {
                                                     return (
                                                         <tr key={v.id}>
                                                             <td>{new Date(v.visit_date).toISOString().split('T')[0]}</td>
-                                                            <td>{v.visit_time}</td>
+                                                            <td>{v.visit_time.slice(0, 5)}</td>
                                                             <td>{v.employee_name}</td>
                                                             <td style={{ maxWidth: '300px', whiteSpace: 'pre-wrap' }}>{v.mom}</td>
                                                             <td>
@@ -1555,13 +1969,13 @@ const EmployeeDashboard = () => {
                                                                 ) : (
                                                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                                                         {photos.map((url, i) => (
-                                                                            <a key={i} href={`http://localhost:5001${url}`} target="_blank" rel="noopener noreferrer">
-                                                                                <img 
-                                                                                    src={`http://localhost:5001${url}`} 
-                                                                                    alt={`site visit photo ${i+1}`}
-                                                                                    style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer' }}
-                                                                                />
-                                                                            </a>
+                                                                            <img 
+                                                                                key={i}
+                                                                                src={`http://localhost:5001${url}`} 
+                                                                                alt={`site visit photo ${i+1}`}
+                                                                                onClick={() => setPreviewPhoto(`http://localhost:5001${url}`)}
+                                                                                style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer' }}
+                                                                            />
                                                                         ))}
                                                                     </div>
                                                                 )}
@@ -1597,116 +2011,6 @@ const EmployeeDashboard = () => {
                         ) : (
                             <p style={{ color: 'var(--text-secondary)' }}>Please select a project first to log site visits and view past observations.</p>
                         )}
-                    </section>
-                )}
-
-
-                {/* REPORTS TAB */}
-                {activeTab === 'reports' && (
-                    <section className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
-                        <h3 style={{ marginBottom: '12px' }}>Operational Excel/CSV Exports</h3>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
-                            Generate and download real-time, tab-separated CSV/Excel logs ready for audit, accounting, and presentation.
-                        </p>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                            <div 
-                                onClick={() => handleDownloadReport('projects')}
-                                className="glass-card" 
-                                style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)' }}
-                            >
-                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📁</div>
-                                <h4>Projects Spreadsheet</h4>
-                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Project specs, contacts, start dates, progress, total hours.</p>
-                            </div>
-                            
-                            {showSvOptions ? (
-                                <div 
-                                    className="glass-card" 
-                                    style={{ padding: '24px', gridColumn: 'span 2', borderColor: 'var(--accent-secondary)', textAlign: 'left' }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                        <h4 style={{ margin: 0, color: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span>🚜</span> Export Site Observation Log
-                                        </h4>
-                                        <button 
-                                            onClick={() => setShowSvOptions(false)} 
-                                            className="btn btn-secondary btn-sm"
-                                            style={{ padding: '4px 10px', fontSize: '12px' }}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Project Filter</label>
-                                        <select 
-                                            className="form-control" 
-                                            style={{ fontSize: '13px', padding: '8px 12px', width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
-                                            value={svProjectId} 
-                                            onChange={e => setSvProjectId(e.target.value)}
-                                        >
-                                            <option value="">All Projects</option>
-                                            {projects.map(proj => (
-                                                <option key={proj.id} value={proj.id}>{proj.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Start Date</label>
-                                            <input 
-                                                type="date" 
-                                                className="form-control" 
-                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                                                value={svStartDate} 
-                                                onChange={e => setSvStartDate(e.target.value)} 
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>End Date</label>
-                                            <input 
-                                                type="date" 
-                                                className="form-control" 
-                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-                                                value={svEndDate} 
-                                                onChange={e => setSvEndDate(e.target.value)} 
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <button 
-                                        className="btn btn-primary" 
-                                        style={{ width: '100%', padding: '10px', fontSize: '13px' }}
-                                        onClick={() => {
-                                            handleDownloadReport('site-visits', null, { projectId: svProjectId, startDate: svStartDate, endDate: svEndDate });
-                                        }}
-                                    >
-                                        Generate & Download Report
-                                    </button>
-                                </div>
-                            ) : (
-                                <div 
-                                    onClick={() => setShowSvOptions(true)}
-                                    className="glass-card" 
-                                    style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)', transition: 'var(--transition-normal)' }}
-                                >
-                                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>🚜</div>
-                                    <h4>Site Observation Log</h4>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Visit dates, times, inspector details, minutes of meetings, and image attachment links.</p>
-                                </div>
-                            )}
-
-                            <div 
-                                onClick={() => handleDownloadReport('employee-activity')}
-                                className="glass-card" 
-                                style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)', gridColumn: 'span 2', transition: 'var(--transition-normal)' }}
-                            >
-                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
-                                <h4>Staff Activity Register</h4>
-                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Detailed register showing when each employee last worked on each project and total hours spent.</p>
-                            </div>
-                        </div>
                     </section>
                 )}
 
@@ -1828,6 +2132,201 @@ const EmployeeDashboard = () => {
                     </section>
                 )}
 
+                {/* REPORTS TAB */}
+                {activeTab === 'reports' && (
+                    <section className="glass-card" style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left' }}>
+                        <h3 style={{ marginBottom: '12px' }}>Operational Excel/CSV Exports</h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '32px' }}>
+                            Generate and download real-time, tab-separated CSV/Excel logs ready for audit, accounting, and presentation.
+                        </p>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div 
+                                onClick={() => handleDownloadReport('projects')}
+                                className="glass-card" 
+                                style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)' }}
+                            >
+                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📁</div>
+                                <h4>Projects Spreadsheet</h4>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Project specs, contacts, start dates, progress, total hours.</p>
+                            </div>
+
+                            <div 
+                                onClick={() => handleDownloadReport('employees')}
+                                className="glass-card" 
+                                style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)' }}
+                            >
+                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>👥</div>
+                                <h4>Employees Register</h4>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Active personnel list, designation, role, total historical hours.</p>
+                            </div>
+                            
+                            {showAttOptions ? (
+                                <div 
+                                    className="glass-card" 
+                                    style={{ padding: '24px', gridColumn: 'span 2', borderColor: 'var(--accent-secondary)', textAlign: 'left' }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <h4 style={{ margin: 0, color: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>📅</span> Export Attendance Log
+                                        </h4>
+                                        <button 
+                                            onClick={() => setShowAttOptions(false)} 
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Start Date</label>
+                                            <input 
+                                                type="date" 
+                                                className="form-control" 
+                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                value={attStartDate} 
+                                                onChange={e => setAttStartDate(e.target.value)} 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>End Date</label>
+                                            <input 
+                                                type="date" 
+                                                className="form-control" 
+                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                value={attEndDate} 
+                                                onChange={e => setAttEndDate(e.target.value)} 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Staff Filter</label>
+                                        <select 
+                                            className="form-control" 
+                                            style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                            value={attEmployeeId} 
+                                            onChange={e => setAttEmployeeId(e.target.value)}
+                                        >
+                                            <option value="">All Employees (Multi-sheet Excel)</option>
+                                            {employees.map(emp => (
+                                                <option key={emp.id} value={emp.id}>{emp.name} (ID: {emp.id})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button 
+                                        className="btn btn-primary" 
+                                        style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+                                        onClick={() => {
+                                            handleDownloadReport('attendance', attEmployeeId || null, { startDate: attStartDate, endDate: attEndDate });
+                                        }}
+                                    >
+                                        Generate & Download Report
+                                    </button>
+                                </div>
+                            ) : (
+                                <div 
+                                    onClick={() => setShowAttOptions(true)}
+                                    className="glass-card" 
+                                    style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)', transition: 'var(--transition-normal)' }}
+                                >
+                                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>📅</div>
+                                    <h4>Attendance Log</h4>
+                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Login/Logout punch-cards, daily totals, statuses.</p>
+                                </div>
+                            )}
+
+                            {showSvOptions ? (
+                                <div 
+                                    className="glass-card" 
+                                    style={{ padding: '24px', gridColumn: 'span 2', borderColor: 'var(--accent-secondary)', textAlign: 'left' }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                        <h4 style={{ margin: 0, color: 'var(--accent-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>🚜</span> Export Site Observation Log
+                                        </h4>
+                                        <button 
+                                            onClick={() => setShowSvOptions(false)} 
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ padding: '4px 10px', fontSize: '12px' }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Project Filter</label>
+                                        <select 
+                                            className="form-control" 
+                                            style={{ fontSize: '13px', padding: '8px 12px', width: '100%', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}
+                                            value={svProjectId} 
+                                            onChange={e => setSvProjectId(e.target.value)}
+                                        >
+                                            <option value="">All Projects</option>
+                                            {projects.map(proj => (
+                                                <option key={proj.id} value={proj.id}>{proj.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>Start Date</label>
+                                            <input 
+                                                type="date" 
+                                                className="form-control" 
+                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                value={svStartDate} 
+                                                onChange={e => setSvStartDate(e.target.value)} 
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="form-label" style={{ fontSize: '12px', marginBottom: '6px', display: 'block' }}>End Date</label>
+                                            <input 
+                                                type="date" 
+                                                className="form-control" 
+                                                style={{ fontSize: '13px', padding: '8px 12px', width: '100%', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                                                value={svEndDate} 
+                                                onChange={e => setSvEndDate(e.target.value)} 
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        className="btn btn-primary" 
+                                        style={{ width: '100%', padding: '10px', fontSize: '13px' }}
+                                        onClick={() => {
+                                            handleDownloadReport('site-visits', null, { projectId: svProjectId, startDate: svStartDate, endDate: svEndDate });
+                                        }}
+                                    >
+                                        Generate & Download Report
+                                    </button>
+                                </div>
+                            ) : (
+                                <div 
+                                    onClick={() => setShowSvOptions(true)}
+                                    className="glass-card" 
+                                    style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)', transition: 'var(--transition-normal)' }}
+                                >
+                                    <div style={{ fontSize: '32px', marginBottom: '12px' }}>🚜</div>
+                                    <h4>Site Observation Log</h4>
+                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Visit dates, times, inspector details, minutes of meetings, and image attachment links.</p>
+                                </div>
+                            )}
+
+                            <div 
+                                onClick={() => handleDownloadReport('employee-activity')}
+                                className="glass-card" 
+                                style={{ padding: '24px', cursor: 'pointer', borderColor: 'var(--border-color)', gridColumn: 'span 2', transition: 'var(--transition-normal)' }}
+                            >
+                                <div style={{ fontSize: '32px', marginBottom: '12px' }}>📊</div>
+                                <h4>Staff Activity Register</h4>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Detailed register showing when each employee last worked on each project and total hours spent.</p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+
                 {/* Create Project Modal */}
                 {showProjModal && (
                     <div className="modal-overlay">
@@ -1887,249 +2386,7 @@ const EmployeeDashboard = () => {
                     </div>
                 )}
 
-                {/* EDIT SITE VISIT MODAL */}
-                {showVisitModal && editingVisit && (() => {
-                    let currentPhotos = [];
-                    try {
-                        currentPhotos = editingVisit.photo_url 
-                            ? (Array.isArray(editingVisit.photo_url) 
-                                ? editingVisit.photo_url 
-                                : JSON.parse(editingVisit.photo_url)) 
-                            : [];
-                    } catch (_) {}
-
-                    return (
-                        <div className="modal-overlay">
-                            <div className="modal-content" style={{ maxWidth: '500px', width: '90%' }}>
-                                <h3 style={{ marginBottom: '20px' }}>Edit Site Visit Observation</h3>
-                                <form onSubmit={handleUpdateSiteVisit}>
-                                    <div className="form-group">
-                                        <label className="form-label">Visit Date</label>
-                                        <input 
-                                            type="date" 
-                                            required 
-                                            className="form-input"
-                                            value={editVisitDate}
-                                            onChange={e => setEditVisitDate(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Visit Time</label>
-                                        <input 
-                                            type="time" 
-                                            required 
-                                            className="form-input"
-                                            value={editVisitTime}
-                                            onChange={e => setEditVisitTime(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Observations / MOM</label>
-                                        <textarea 
-                                            required 
-                                            rows="3"
-                                            className="form-textarea"
-                                            value={editVisitMom}
-                                            onChange={e => setEditVisitMom(e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Existing Photos Section */}
-                                    <div className="form-group">
-                                        <label className="form-label">Existing Photos</label>
-                                        {currentPhotos.length === 0 ? (
-                                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No photos uploaded for this site visit.</span>
-                                        ) : (
-                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
-                                                {currentPhotos.map((url, idx) => {
-                                                    const isDeleted = deletedPhotos.includes(url);
-                                                    return (
-                                                        <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
-                                                            <img 
-                                                                src={`http://localhost:5001${url}`} 
-                                                                alt="Site Visit Photo" 
-                                                                style={{ 
-                                                                    width: '100%', 
-                                                                    height: '100%', 
-                                                                    objectFit: 'cover', 
-                                                                    borderRadius: '6px',
-                                                                    border: '1px solid var(--border-color)',
-                                                                    opacity: isDeleted ? 0.3 : 1
-                                                                }}
-                                                            />
-                                                            {!isDeleted ? (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setDeletedPhotos([...deletedPhotos, url])}
-                                                                    style={{
-                                                                        position: 'absolute',
-                                                                        top: '-4px',
-                                                                        right: '-4px',
-                                                                        background: '#e05252',
-                                                                        color: '#fff',
-                                                                        border: 'none',
-                                                                        borderRadius: '50%',
-                                                                        width: '18px',
-                                                                        height: '18px',
-                                                                        fontSize: '11px',
-                                                                        cursor: 'pointer',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center'
-                                                                    }}
-                                                                    title="Delete Photo"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            ) : (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setDeletedPhotos(deletedPhotos.filter(p => p !== url))}
-                                                                    style={{
-                                                                        position: 'absolute',
-                                                                        top: '-4px',
-                                                                        right: '-4px',
-                                                                        background: '#4caf50',
-                                                                        color: '#fff',
-                                                                        border: 'none',
-                                                                        borderRadius: '50%',
-                                                                        width: '18px',
-                                                                        height: '18px',
-                                                                        fontSize: '11px',
-                                                                        cursor: 'pointer',
-                                                                        display: 'flex',
-                                                                        alignItems: 'center',
-                                                                        justifyContent: 'center'
-                                                                    }}
-                                                                    title="Undo Delete"
-                                                                >
-                                                                    ⟲
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Upload New Photos Section */}
-                                    <div className="form-group" style={{ marginBottom: '24px' }}>
-                                        <label className="form-label">Add New Photos</label>
-                                        <input 
-                                            type="file" 
-                                            multiple 
-                                            accept="image/*"
-                                            className="form-input"
-                                            onChange={e => setEditPhotos(Array.from(e.target.files))}
-                                        />
-                                        {editPhotos.length > 0 && (
-                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                                {editPhotos.length} new photo(s) selected
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                        <button type="button" onClick={() => setShowVisitModal(false)} className="btn btn-secondary">
-                                            Cancel
-                                        </button>
-                                        <button type="submit" className="btn btn-primary">
-                                            Save Changes
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {showAnnModal && viewingAnn && (
-                    <div className="modal-overlay">
-                        <div className="modal-content" style={{ maxWidth: '500px', width: '90%', position: 'relative' }}>
-                            <button 
-                                onClick={() => { setShowAnnModal(false); setViewingAnn(null); }} 
-                                style={{ 
-                                    position: 'absolute', 
-                                    top: '16px', 
-                                    right: '16px', 
-                                    background: 'none', 
-                                    border: 'none', 
-                                    fontSize: '18px', 
-                                    cursor: 'pointer',
-                                    color: 'var(--text-secondary)'
-                                }}
-                            >
-                                ✕
-                            </button>
-                            <h3 style={{ marginBottom: '16px', fontFamily: 'var(--font-heading)' }}>Project Announcement</h3>
-                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                                Project: <strong>{viewingAnn.project_name}</strong>
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-                                Posted by <strong>{viewingAnn.author_name}</strong> &bull; {new Date(viewingAnn.created_at).toLocaleString()}
-                            </div>
-                            <div style={{ 
-                                fontSize: '14.5px', 
-                                color: 'var(--text-primary)', 
-                                lineHeight: '1.5', 
-                                background: 'var(--bg-secondary)', 
-                                padding: '16px', 
-                                borderRadius: '8px', 
-                                border: '1px solid var(--border-color)',
-                                whiteSpace: 'pre-wrap'
-                            }}>
-                                {viewingAnn.content}
-                            </div>
-
-                            {/* Read Receipts in Modal */}
-                            <div style={{ marginTop: '20px' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModalReads(!showModalReads)}
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: 'var(--accent-color)',
-                                        fontSize: '12.5px',
-                                        cursor: 'pointer',
-                                        padding: 0,
-                                        textDecoration: 'underline'
-                                    }}
-                                >
-                                    {showModalReads ? 'Hide Read Receipts' : `View Read Receipts (${modalReads.length})`}
-                                </button>
-                                
-                                {showModalReads && (
-                                    <div style={{
-                                        marginTop: '10px',
-                                        padding: '10px',
-                                        background: 'var(--bg-secondary)',
-                                        border: '1px solid var(--border-color)',
-                                        borderRadius: '8px',
-                                        fontSize: '12px',
-                                        maxHeight: '150px',
-                                        overflowY: 'auto'
-                                    }}>
-                                        {modalReads.length === 0 ? (
-                                            <span style={{ color: 'var(--text-muted)' }}>No one has read this announcement yet.</span>
-                                        ) : (
-                                            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-secondary)' }}>
-                                                {modalReads.map((r, i) => (
-                                                    <li key={i} style={{ marginBottom: '4px' }}>
-                                                        <strong>{r.employee_name}</strong> at {new Date(r.read_at).toLocaleString()}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* TASK CHECKLIST CONFIG MODAL */}
+                {/* Manage Checklist Modal */}
                 {showChecklistModal && (() => {
                     const suggestedTasksTemplate = checklistTemplates.find(t => t.name === 'Suggested Tasks');
                     const suggestedTasksList = suggestedTasksTemplate ? suggestedTasksTemplate.tasks : [];
@@ -2145,7 +2402,6 @@ const EmployeeDashboard = () => {
                                     <button onClick={() => { setShowChecklistModal(false); fetchProjects(); loadDashboard(); }} className="btn btn-secondary btn-sm">Close</button>
                                 </div>
 
-                                {/* Categories & Subtasks list */}
                                 <div style={{ maxHeight: '380px', overflowY: 'auto', marginBottom: '24px', paddingRight: '8px' }}>
                                     {projectTasks.length === 0 ? (
                                         <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '32px 0' }}>No drawing checklists configured. Start by adding a drawing category header below.</p>
@@ -2153,20 +2409,19 @@ const EmployeeDashboard = () => {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             {projectTasks.map(category => (
                                                 <div key={category.id} style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', background: '#FFFFFF' }}>
-                                                    {/* Category Header Bar */}
+                                                    {/* Category Header */}
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FDF2F2', padding: '10px 16px', borderBottom: '1px solid var(--border-color)' }}>
                                                         <span style={{ fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>{category.task_name}</span>
                                                         <button 
                                                             onClick={() => handleDeleteCategory(category.id)} 
                                                             className="btn-link" 
                                                             style={{ color: 'var(--color-danger)', fontSize: '12px', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                                                            title="Delete Category Header & All Subtasks"
                                                         >
                                                             Remove Category
                                                         </button>
                                                     </div>
 
-                                                    {/* Subtasks Table */}
+                                                    {/* Subtasks table */}
                                                     <div className="table-container" style={{ margin: 0, border: 'none', borderRadius: 0 }}>
                                                         <table className="custom-table" style={{ margin: 0 }}>
                                                             <thead>
@@ -2208,7 +2463,6 @@ const EmployeeDashboard = () => {
                                                                             <button 
                                                                                 onClick={() => handleDeleteSubtask(sub.id)}
                                                                                 style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
-                                                                                title="Delete drawing checklist item"
                                                                             >
                                                                                 ✕
                                                                             </button>
@@ -2216,7 +2470,7 @@ const EmployeeDashboard = () => {
                                                                     </tr>
                                                                 ))}
 
-                                                                {/* Inline form to Add Subtask */}
+                                                                {/* Add subtask */}
                                                                 {activeAddSubtaskCategoryId === category.id ? (
                                                                     <tr style={{ background: 'var(--bg-primary)' }}>
                                                                         <td colSpan="5" style={{ padding: '12px 16px' }}>
@@ -2304,7 +2558,7 @@ const EmployeeDashboard = () => {
 
                                 <hr style={{ borderColor: 'var(--border-color)', margin: '20px 0' }} />
 
-                                {/* Add New Category Header Form */}
+                                {/* Add Category Form */}
                                 <form onSubmit={handleCreateCategory} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--bg-secondary)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                                     <label className="form-label" style={{ fontWeight: '600', marginBottom: 0 }}>Add Category Header</label>
                                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -2336,9 +2590,269 @@ const EmployeeDashboard = () => {
                         </div>
                     );
                 })()}
+
+                {/* Edit Site Visit Modal */}
+                {showVisitModal && editingVisit && (() => {
+                    let currentPhotos = [];
+                    try {
+                        currentPhotos = editingVisit.photo_url 
+                            ? (Array.isArray(editingVisit.photo_url) 
+                                ? editingVisit.photo_url 
+                                : JSON.parse(editingVisit.photo_url)) 
+                            : [];
+                    } catch (_) {}
+
+                    return (
+                        <div className="modal-overlay">
+                            <div className="modal-content" style={{ maxWidth: '500px', width: '90%' }}>
+                                <h3 style={{ marginBottom: '20px' }}>Edit Site Visit Observation</h3>
+                                <form onSubmit={handleUpdateSiteVisit}>
+                                    <div className="form-group">
+                                        <label className="form-label">Visit Date</label>
+                                        <input 
+                                            type="date" 
+                                            required 
+                                            className="form-input"
+                                            value={editVisitDate}
+                                            onChange={e => setEditVisitDate(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Visit Time</label>
+                                        <input 
+                                            type="time" 
+                                            required 
+                                            className="form-input"
+                                            value={editVisitTime}
+                                            onChange={e => setEditVisitTime(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Observations / MOM</label>
+                                        <textarea 
+                                            required 
+                                            rows="3"
+                                            className="form-textarea"
+                                            value={editVisitMom}
+                                            onChange={e => setEditVisitMom(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {/* Existing Photos */}
+                                    <div className="form-group">
+                                        <label className="form-label">Existing Photos</label>
+                                        {currentPhotos.length === 0 ? (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No photos uploaded for this site visit.</span>
+                                        ) : (
+                                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+                                                {currentPhotos.map((url, idx) => {
+                                                    const isDeleted = deletedPhotos.includes(url);
+                                                    return (
+                                                        <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
+                                                            <img 
+                                                                src={`http://localhost:5001${url}`} 
+                                                                alt="Site Visit" 
+                                                                style={{ 
+                                                                    width: '100%', 
+                                                                    height: '100%', 
+                                                                    objectFit: 'cover', 
+                                                                    borderRadius: '6px',
+                                                                    border: '1px solid var(--border-color)',
+                                                                    opacity: isDeleted ? 0.3 : 1
+                                                                }}
+                                                            />
+                                                            {!isDeleted ? (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDeletedPhotos([...deletedPhotos, url])}
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: '-4px',
+                                                                        right: '-4px',
+                                                                        background: '#e05252',
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        borderRadius: '50%',
+                                                                        width: '18px',
+                                                                        height: '18px',
+                                                                        fontSize: '11px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setDeletedPhotos(deletedPhotos.filter(p => p !== url))}
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: '-4px',
+                                                                        right: '-4px',
+                                                                        background: '#4caf50',
+                                                                        color: '#fff',
+                                                                        border: 'none',
+                                                                        borderRadius: '50%',
+                                                                        width: '18px',
+                                                                        height: '18px',
+                                                                        fontSize: '11px',
+                                                                        cursor: 'pointer',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                >
+                                                                    ⟲
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Upload new photos */}
+                                    <div className="form-group" style={{ marginBottom: '24px' }}>
+                                        <label className="form-label">Add New Photos</label>
+                                        <input 
+                                            type="file" 
+                                            multiple 
+                                            accept="image/*"
+                                            className="form-input"
+                                            onChange={e => setEditPhotos(Array.from(e.target.files))}
+                                        />
+                                        {editPhotos.length > 0 && (
+                                            <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                                {editPhotos.length} new photo(s) selected
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                        <button type="button" onClick={() => setShowVisitModal(false)} className="btn btn-secondary">
+                                            Cancel
+                                        </button>
+                                        <button type="submit" className="btn btn-primary">
+                                            Save Changes
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Announcement modal */}
+                {showAnnModal && viewingAnn && (
+                    <div className="modal-overlay">
+                        <div className="modal-content" style={{ maxWidth: '500px', width: '90%', position: 'relative' }}>
+                            <button 
+                                onClick={() => { setShowAnnModal(false); setViewingAnn(null); }} 
+                                style={{ 
+                                    position: 'absolute', 
+                                    top: '16px', 
+                                    right: '16px', 
+                                    background: 'none', 
+                                    border: 'none', 
+                                    fontSize: '18px', 
+                                    cursor: 'pointer',
+                                    color: 'var(--text-secondary)'
+                                }}
+                            >
+                                ✕
+                            </button>
+                            <h3 style={{ marginBottom: '16px', fontFamily: 'var(--font-heading)' }}>Project Announcement</h3>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                                Project: <strong>{viewingAnn.project_name}</strong>
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px' }}>
+                                Posted by <strong>{viewingAnn.author_name}</strong> &bull; {new Date(viewingAnn.created_at).toLocaleString()}
+                            </div>
+                            <div style={{ 
+                                fontSize: '14.5px', 
+                                color: 'var(--text-primary)', 
+                                lineHeight: '1.5', 
+                                background: 'var(--bg-secondary)', 
+                                padding: '16px', 
+                                borderRadius: '8px', 
+                                border: '1px solid var(--border-color)',
+                                whiteSpace: 'pre-wrap'
+                            }}>
+                                {viewingAnn.content}
+                            </div>
+
+                            {/* Read Receipts */}
+                            <div style={{ marginTop: '20px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModalReads(!showModalReads)}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'var(--accent-color)',
+                                        fontSize: '12.5px',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    {showModalReads ? 'Hide Read Receipts' : `View Read Receipts (${modalReads.length})`}
+                                </button>
+                                
+                                {showModalReads && (
+                                    <div style={{
+                                        marginTop: '10px',
+                                        padding: '10px',
+                                        background: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '8px',
+                                        fontSize: '12px',
+                                        maxHeight: '150px',
+                                        overflowY: 'auto'
+                                    }}>
+                                        {modalReads.length === 0 ? (
+                                            <span style={{ color: 'var(--text-muted)' }}>No one has read this announcement yet.</span>
+                                        ) : (
+                                            <ul style={{ margin: 0, paddingLeft: '16px', color: 'var(--text-secondary)' }}>
+                                                {modalReads.map((r, i) => (
+                                                    <li key={i} style={{ marginBottom: '4px' }}>
+                                                        <strong>{r.employee_name}</strong> at {new Date(r.read_at).toLocaleString()}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Photo Preview Modal */}
+                {previewPhoto && (
+                    <div className="modal-overlay" onClick={() => setPreviewPhoto(null)}>
+                        <div className="modal-content" style={{ maxWidth: '800px', padding: '16px', background: 'transparent', boxShadow: 'none', border: 'none', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                            <button 
+                                onClick={() => setPreviewPhoto(null)} 
+                                style={{ position: 'absolute', top: '-10px', right: '-10px', background: 'var(--accent-color)', color: '#fff', border: 'none', borderRadius: '50%', width: '36px', height: '36px', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', zIndex: 10 }}
+                            >
+                                ✕
+                            </button>
+                            <img 
+                                src={previewPhoto} 
+                                alt="Site Visit Preview" 
+                                style={{ width: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '12px', border: '4px solid var(--border-color)', background: 'var(--bg-secondary)' }} 
+                            />
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );
 };
 
-export default EmployeeDashboard;
+export default SuperAdminDashboard;

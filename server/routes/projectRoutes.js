@@ -33,6 +33,6 @@ router.route('/:projectId/site-visits')
 // Announcement Routes within Project
 router.route('/:projectId/announcements')
       .get(protect, getProjectAnnouncements)
-      .post(protect, superAdmin, createAnnouncement);
+      .post(protect, createAnnouncement);
 
 module.exports = router;

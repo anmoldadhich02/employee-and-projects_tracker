@@ -80,8 +80,21 @@ cron.schedule('*/5 * * * *', async () => {
             }
         }
         
+        // 3. Auto-delete announcements older than 30 days
+        const deletedAnn = await pool.query(
+            "DELETE FROM announcements WHERE created_at < NOW() - INTERVAL '30 days' RETURNING id"
+        );
+        if (deletedAnn.rows.length > 0) {
+            const deletedIds = deletedAnn.rows.map(r => r.id);
+            await pool.query(
+                "DELETE FROM notifications WHERE type = 'announcement' AND related_id = ANY($1::int[])",
+                [deletedIds]
+            );
+            console.log(`Auto-deleted ${deletedAnn.rows.length} announcements older than 30 days.`);
+        }
+        
         await pool.query('COMMIT');
-        console.log('Auto-logout check completed successfully.');
+        console.log('Auto-logout and announcement cleanup check completed successfully.');
     } catch (error) {
         await pool.query('ROLLBACK');
         console.error('Cron job error:', error.message);

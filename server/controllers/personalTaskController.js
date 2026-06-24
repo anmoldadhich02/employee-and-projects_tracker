@@ -37,12 +37,12 @@ const createPersonalTask = async (req, res) => {
     }
 };
 
-// @desc    Update completed status of a personal task
+// @desc    Update completed status or title of a personal task
 // @route   PUT /api/personal-tasks/:id
 // @access  Protected
 const updatePersonalTask = async (req, res) => {
     const { id } = req.params;
-    const { completed } = req.body;
+    const { completed, title } = req.body;
 
     try {
         const checkResult = await pool.query('SELECT user_id FROM personal_tasks WHERE id = $1', [id]);
@@ -53,10 +53,29 @@ const updatePersonalTask = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this task' });
         }
 
-        const result = await pool.query(
-            'UPDATE personal_tasks SET completed = $1 WHERE id = $2 RETURNING *',
-            [completed === true, id]
-        );
+        let query = 'UPDATE personal_tasks SET ';
+        const params = [];
+        let paramCount = 1;
+
+        if (completed !== undefined) {
+            query += `completed = $${paramCount}, `;
+            params.push(completed === true);
+            paramCount++;
+        }
+        if (title !== undefined && title.trim()) {
+            query += `title = $${paramCount}, `;
+            params.push(title.trim());
+            paramCount++;
+        }
+
+        if (params.length === 0) {
+            return res.status(400).json({ message: 'No fields to update' });
+        }
+        query = query.slice(0, -2); // Remove trailing comma and space
+        query += ` WHERE id = $${paramCount} RETURNING *`;
+        params.push(id);
+
+        const result = await pool.query(query, params);
         res.json(result.rows[0]);
     } catch (error) {
         console.error(error.message);

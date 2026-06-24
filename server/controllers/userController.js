@@ -287,11 +287,13 @@ const getDashboardStats = async (req, res) => {
         const activeProjectsCount = parseInt(activeProjectsQuery.rows[0].count);
 
         // 2. Employees Currently Working Count
+        const today = getLocalDateString();
         const workingCountQuery = await pool.query(
             `SELECT COUNT(DISTINCT a.employee_id) 
              FROM attendance a
              JOIN users u ON a.employee_id = u.id
-             WHERE a.date = CURRENT_DATE AND a.logout_time IS NULL AND u.role != 'Admin'`
+             WHERE a.date = $1 AND a.logout_time IS NULL AND u.role != 'Admin'`,
+            [today]
         );
         const workingCount = parseInt(workingCountQuery.rows[0].count);
 
@@ -305,13 +307,15 @@ const getDashboardStats = async (req, res) => {
             ), 0) / 3600.0 AS total_hours
             FROM attendance a
             JOIN users u ON a.employee_id = u.id
-            WHERE a.date = CURRENT_DATE AND u.role != 'Admin'`
+            WHERE a.date = $1 AND u.role != 'Admin'`,
+            [today]
         );
         const totalHours = parseFloat(parseFloat(totalHoursQuery.rows[0].total_hours).toFixed(2));
 
         // 4. Site Visits Today
         const siteVisitsQuery = await pool.query(
-            "SELECT COUNT(*) FROM site_visits WHERE visit_date = CURRENT_DATE"
+            "SELECT COUNT(*) FROM site_visits WHERE visit_date = $1",
+            [today]
         );
         const siteVisitsCount = parseInt(siteVisitsQuery.rows[0].count);
 
@@ -337,11 +341,12 @@ const getDashboardStats = async (req, res) => {
                         ORDER BY s.created_at DESC LIMIT 1
                     ) AS current_task_name
              FROM users u
-             LEFT JOIN attendance a ON u.id = a.employee_id AND a.date = CURRENT_DATE
+             LEFT JOIN attendance a ON u.id = a.employee_id AND a.date = $1
              LEFT JOIN time_logs tl ON u.id = tl.employee_id AND tl.end_time IS NULL
              LEFT JOIN projects p ON tl.project_id = p.id
              WHERE u.role != 'Admin'
-             ORDER BY u.name ASC`
+             ORDER BY u.name ASC`,
+            [today]
         );
 
         const liveEmployees = liveEmployeesQuery.rows.map(emp => {
