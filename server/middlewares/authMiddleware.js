@@ -10,8 +10,8 @@ const protect = async (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             
             // Check if user is active in the database
-            const userRes = await pool.query('SELECT status FROM users WHERE id = $1', [decoded.id]);
-            if (userRes.rows.length === 0 || userRes.rows[0].status === 'Inactive') {
+            const userRes = await pool.query('SELECT status, is_deleted FROM users WHERE id = $1', [decoded.id]);
+            if (userRes.rows.length === 0 || userRes.rows[0].status === 'Inactive' || userRes.rows[0].is_deleted) {
                 return res.status(401).json({ message: 'Session expired' });
             }
 

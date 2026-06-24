@@ -4,6 +4,7 @@ const generateToken = require('../utils/jwtToken');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { exec } = require('child_process');
 
 // Configure multer storage for candidate profile images
 const uploadProfileDir = path.join(__dirname, '../uploads/profiles');
@@ -47,7 +48,7 @@ const loginUser = async (req, res) => {
     const { email, password } = req.body;
     try {
         const result = await pool.query(
-            'SELECT * FROM users WHERE LOWER(email) = LOWER($1) OR LOWER(name) = LOWER($1)',
+            'SELECT * FROM users WHERE (LOWER(email) = LOWER($1) OR LOWER(name) = LOWER($1)) AND is_deleted = FALSE',
             [email]
         );
         if (result.rows.length === 0) {
@@ -133,7 +134,7 @@ const createEmployee = async (req, res) => {
 
 const getEmployees = async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, email, phone_number, designation, role, status, profile_image_url FROM users ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, name, email, phone_number, designation, role, status, profile_image_url FROM users WHERE is_deleted = FALSE ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         res.status(500).send('Server Error');
@@ -292,7 +293,7 @@ const getDashboardStats = async (req, res) => {
             `SELECT COUNT(DISTINCT a.employee_id) 
              FROM attendance a
              JOIN users u ON a.employee_id = u.id
-             WHERE a.date = $1 AND a.logout_time IS NULL AND u.role != 'Admin'`,
+             WHERE a.date = $1 AND a.logout_time IS NULL AND u.role != 'Admin' AND u.is_deleted = FALSE`,
             [today]
         );
         const workingCount = parseInt(workingCountQuery.rows[0].count);
@@ -307,7 +308,7 @@ const getDashboardStats = async (req, res) => {
             ), 0) / 3600.0 AS total_hours
             FROM attendance a
             JOIN users u ON a.employee_id = u.id
-            WHERE a.date = $1 AND u.role != 'Admin'`,
+            WHERE a.date = $1 AND u.role != 'Admin' AND u.is_deleted = FALSE`,
             [today]
         );
         const totalHours = parseFloat(parseFloat(totalHoursQuery.rows[0].total_hours).toFixed(2));
@@ -344,7 +345,7 @@ const getDashboardStats = async (req, res) => {
              LEFT JOIN attendance a ON u.id = a.employee_id AND a.date = $1
              LEFT JOIN time_logs tl ON u.id = tl.employee_id AND tl.end_time IS NULL
              LEFT JOIN projects p ON tl.project_id = p.id
-             WHERE u.role != 'Admin'
+             WHERE u.role != 'Admin' AND u.is_deleted = FALSE
              ORDER BY u.name ASC`,
             [today]
         );
@@ -481,36 +482,47 @@ const deleteEmployee = async (req, res) => {
             return res.status(403).json({ message: 'Owner Admins cannot be deleted' });
         }
 
-        // 1. Fetch user's site visits to get and delete their photos from disk
-        const userVisits = await pool.query('SELECT photo_url FROM site_visits WHERE employee_id = $1', [id]);
-        for (const row of userVisits.rows) {
-            let photos = [];
-            try {
-                photos = row.photo_url ? (Array.isArray(row.photo_url) ? row.photo_url : JSON.parse(row.photo_url)) : [];
-            } catch (_) {}
-            for (const url of photos) {
-                const filePath = path.join(__dirname, '..', url);
-                if (fs.existsSync(filePath)) {
-                    try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink site visit photo:', e.message); }
-                }
-            }
-        }
-
-        // 2. Delete physical profile image
-        if (userToDelete.profile_image_url) {
-            const profilePath = path.join(__dirname, '..', userToDelete.profile_image_url);
-            if (fs.existsSync(profilePath)) {
-                try { fs.unlinkSync(profilePath); } catch (e) { console.error('Failed to unlink profile image:', e.message); }
-            }
-        }
-
-        // 3. Perform database delete
-        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        // 1. Perform database soft-delete
+        // We set status='Inactive', is_deleted=TRUE, and rename the email to prevent unique constraint conflicts
+        const deletedEmail = `${userToDelete.email}_deleted_${Date.now()}`;
+        await pool.query(
+            "UPDATE users SET status = 'Inactive', is_deleted = TRUE, email = $1 WHERE id = $2",
+            [deletedEmail, id]
+        );
 
         res.json({ message: `Staff member ${userToDelete.name} deleted successfully` });
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Server Error');
+    }
+};
+
+const openNetworkFolder = async (req, res) => {
+    console.log('[openNetworkFolder] Endpoint hit!');
+    try {
+        const folderPath = '/Users/anmoldadhich/Desktop/network folder';
+        console.log(`[openNetworkFolder] Path: ${folderPath}`);
+        if (!fs.existsSync(folderPath)) {
+            console.log('[openNetworkFolder] Path does not exist. Creating...');
+            fs.mkdirSync(folderPath, { recursive: true });
+            console.log('[openNetworkFolder] Path created.');
+        } else {
+            console.log('[openNetworkFolder] Path exists.');
+        }
+        
+        console.log('[openNetworkFolder] Executing command: open');
+        exec(`open "${folderPath}"`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`[openNetworkFolder] Failed to open folder error: ${error.message}`);
+                console.error(`[openNetworkFolder] stderr: ${stderr}`);
+                return res.status(500).json({ message: 'Failed to open directory', error: error.message });
+            }
+            console.log('[openNetworkFolder] Command run successfully.');
+            res.json({ message: 'Directory opened successfully' });
+        });
+    } catch (error) {
+        console.error('[openNetworkFolder] Caught error:', error.message);
+        res.status(500).send('Server Error: ' + error.message);
     }
 };
 
@@ -524,5 +536,6 @@ module.exports = {
     resetUserPassword,
     getDashboardStats,
     deleteEmployee,
-    uploadProfile
+    uploadProfile,
+    openNetworkFolder
 };

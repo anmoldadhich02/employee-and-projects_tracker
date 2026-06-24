@@ -21,6 +21,19 @@ const initializeDatabase = async () => {
     await pool.query(schemaSql);
     console.log('Database tables verified/created successfully.');
 
+    // Add is_deleted column migration to users table if not exists
+    const checkColumnQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='users' AND column_name='is_deleted';
+    `;
+    const columnRes = await pool.query(checkColumnQuery);
+    if (columnRes.rows.length === 0) {
+      console.log('Migrating users table: adding is_deleted column...');
+      await pool.query('ALTER TABLE users ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;');
+      console.log('Column is_deleted added successfully.');
+    }
+
     // Seed default administrator if not present
     const adminEmail = 'admin@archfirm.com';
     const checkAdmin = await pool.query('SELECT * FROM users WHERE email = $1', [adminEmail]);

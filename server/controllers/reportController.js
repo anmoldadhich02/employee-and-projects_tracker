@@ -201,6 +201,7 @@ const exportEmployeesReport = async (req, res) => {
         const query = `
             SELECT u.name, u.email, u.phone_number, u.designation, u.role
             FROM users u
+            WHERE u.is_deleted = FALSE
             ORDER BY u.name ASC
         `;
         const result = await pool.query(query);
@@ -390,7 +391,7 @@ const exportAttendanceReport = async (req, res) => {
         let empQuery = `
             SELECT id, name, designation, email 
             FROM users 
-            WHERE role != 'Admin'
+            WHERE role != 'Admin' AND is_deleted = FALSE
         `;
         const empParams = [];
         if (employeeId) {
@@ -610,7 +611,6 @@ const exportSiteVisitsReport = async (req, res) => {
 
         // Set column structures
         worksheet.columns = [
-            { header: 'Visit ID', key: 'id', width: 12 },
             { header: 'Project Name', key: 'project_name', width: 25 },
             { header: 'Employee Name', key: 'employee_name', width: 22 },
             { header: 'Visit Date', key: 'visit_date', width: 16 },
@@ -639,7 +639,6 @@ const exportSiteVisitsReport = async (req, res) => {
 
             // Add standard textual columns
             worksheet.addRow({
-                id: row.id,
                 project_name: row.project_name,
                 employee_name: row.employee_name,
                 visit_date: visitDateStr,
@@ -698,13 +697,13 @@ const exportSiteVisitsReport = async (req, res) => {
 
                         worksheet.addImage(imageId, {
                             tl: { 
-                                nativeCol: 6, // Column G
+                                nativeCol: 5, // Column F
                                 nativeColOff: emuOffset,
                                 nativeRow: rowIndex - 1, 
                                 nativeRowOff: 5 * 9525 // 5px top offset
                             },
                             br: {
-                                nativeCol: 6,
+                                nativeCol: 5,
                                 nativeColOff: emuOffset + imgWidth * 9525,
                                 nativeRow: rowIndex - 1,
                                 nativeRowOff: (5 + imgHeight) * 9525

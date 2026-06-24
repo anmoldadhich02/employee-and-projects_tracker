@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) NOT NULL CHECK (role IN ('Admin', 'Secondary Admin', 'Employee')),
     status VARCHAR(50) NOT NULL DEFAULT 'Working' CHECK (status IN ('Working', 'Inactive')),
     profile_image_url VARCHAR(500),
+    is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

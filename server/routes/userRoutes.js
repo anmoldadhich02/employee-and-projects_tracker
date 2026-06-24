@@ -10,13 +10,15 @@ const {
     resetUserPassword,
     getDashboardStats,
     deleteEmployee,
-    uploadProfile
+    uploadProfile,
+    openNetworkFolder
 } = require('../controllers/userController');
 const { protect, admin, superAdmin } = require('../middlewares/authMiddleware');
 
 router.post('/login', loginUser);
 router.post('/logout', protect, logoutUser);
 router.get('/dashboard', protect, getDashboardStats);
+router.post('/open-network-folder', protect, openNetworkFolder);
 
 // Employee management (Protected, SuperAdmin/Admin only)
 router.route('/').get(protect, superAdmin, getEmployees).post(protect, superAdmin, uploadProfile.single('profile_image'), createEmployee);
