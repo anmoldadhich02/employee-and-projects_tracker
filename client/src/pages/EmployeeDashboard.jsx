@@ -208,8 +208,6 @@ const EmployeeDashboard = () => {
         }
     };
 
-
-
     const loadDashboard = async () => {
         try {
             const res = await API.get('/users/dashboard');
@@ -970,7 +968,6 @@ const EmployeeDashboard = () => {
                                 + Add Project
                             </button>
                         )}
-
 
                         {/* Today's Ticking Timer */}
                         <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 24px', borderColor: isLoggedIn ? 'var(--accent-secondary)' : 'var(--border-color)' }}>

@@ -250,7 +250,6 @@ const SuperAdminDashboard = () => {
     };
 
 
-
     const loadDashboard = async () => {
         try {
             const res = await API.get('/users/dashboard');

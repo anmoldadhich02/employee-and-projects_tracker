@@ -949,6 +949,34 @@ const OwnerAdminDashboard = () => {
                         </h1>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {/* Open Network Folder Button */}
+                        <button 
+                            onClick={handleOpenNetworkFolder} 
+                            className="btn" 
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px', 
+                                padding: '10px 16px', 
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '8px',
+                                color: 'var(--text-primary)',
+                                cursor: 'pointer',
+                                fontWeight: '600',
+                                fontSize: '13px',
+                                height: 'fit-content',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+                            title="Open LDP Folder"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-primary)' }}>
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span>LDP</span>
+                        </button>
 
                         {activeTab === 'projects' && (
                             <button onClick={() => setShowProjModal(true)} className="btn btn-primary">
