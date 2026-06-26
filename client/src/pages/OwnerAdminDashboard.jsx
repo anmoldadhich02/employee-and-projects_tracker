@@ -202,16 +202,6 @@ const OwnerAdminDashboard = () => {
         }
     };
 
-    const handleOpenNetworkFolder = async () => {
-        try {
-            await API.post('/users/open-network-folder');
-        } catch (e) {
-            console.error('Failed to open network folder:', e);
-            const errMsg = e.response?.data?.message || e.response?.data || e.message;
-            alert('Failed to open network folder: ' + errMsg);
-        }
-    };
-
 
 
     const fetchProjectSiteVisits = async (projId) => {
@@ -534,43 +524,6 @@ const OwnerAdminDashboard = () => {
             loadDashboard();
         } catch (e) {
             alert(e.response?.data?.message || 'Failed to delete staff member');
-        }
-    };
-    const handleOpenEditModal = (emp) => {
-        setEditEmpId(emp.id);
-        setEditEmpName(emp.name);
-        setEditEmpEmail(emp.email);
-        setEditEmpPhone(emp.phone_number || '');
-        setEditEmpDesignation(emp.designation || '');
-        setEditEmpRole(emp.role);
-        setEditEmpProfileImage(null);
-        setEditEmpProfileImageUrl(emp.profile_image_url || '');
-        setShowEditEmpModal(true);
-    };
-    const handleUpdateEmployee = async (e) => {
-        e.preventDefault();
-        try {
-            const formData = new FormData();
-            formData.append('name', editEmpName);
-            formData.append('email', editEmpEmail);
-            formData.append('phone_number', editEmpPhone);
-            formData.append('designation', editEmpDesignation);
-            formData.append('role', editEmpRole);
-            if (editEmpProfileImage) {
-                formData.append('profile_image', editEmpProfileImage);
-            }
-            await API.put(`/users/${editEmpId}`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-            setShowEditEmpModal(false);
-            loadEmployees();
-            loadDashboard();
-        } catch (err) {
-            console.error('Failed to update employee:', err);
-            const errMsg = err.response?.data?.message || err.message;
-            alert('Failed to update employee: ' + errMsg);
         }
     };
 
@@ -926,7 +879,7 @@ const OwnerAdminDashboard = () => {
                         <div className="user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {user?.profile_image_url ? (
                                 <img 
-                                    src={`${getBackendUrl()}${user.profile_image_url}`}
+                                    src={`http://localhost:5001${user.profile_image_url}`} 
                                     alt={user.name} 
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
@@ -1077,7 +1030,7 @@ const OwnerAdminDashboard = () => {
                                                         <div className="staff-avatar-cell">
                                                             {emp.profile_image_url ? (
                                                                 <img 
-                                                                    src={`${getBackendUrl()}${emp.profile_image_url}`}
+                                                                    src={`http://localhost:5001${emp.profile_image_url}`} 
                                                                     alt={emp.name} 
                                                                     style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
                                                                 />
@@ -1396,7 +1349,7 @@ const OwnerAdminDashboard = () => {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         {emp.profile_image_url ? (
                                                             <img 
-                                                                src={`${getBackendUrl()}${emp.profile_image_url}`}
+                                                                src={`http://localhost:5001${emp.profile_image_url}`} 
                                                                 alt={emp.name} 
                                                                 style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
                                                             />
@@ -1762,7 +1715,7 @@ const OwnerAdminDashboard = () => {
                                                                             {photos.map((url, i) => (
                                                                                 <img 
                                                                                     key={i}
-                                                                                    src={`${getBackendUrl()}${url}`}
+                                                                                    src={`http://localhost:5001${url}`} 
                                                                                     alt={`site visit photo ${i+1}`}
                                                                                     onClick={() => setPreviewPhoto(`${getBackendUrl()}${url}`)}
                                                                                     style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer' }}
@@ -2445,7 +2398,7 @@ const OwnerAdminDashboard = () => {
                                                     return (
                                                         <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
                                                             <img 
-                                                                src={`${getBackendUrl()}${url}`}
+                                                                src={`http://localhost:5001${url}`} 
                                                                 alt="Site Visit Photo" 
                                                                 style={{ 
                                                                     width: '100%', 
@@ -2542,95 +2495,7 @@ const OwnerAdminDashboard = () => {
                         </div>
                     );
                 })()}
-                {/* EDIT EMPLOYEE MODAL */}
-                {showEditEmpModal && (
-                    <div className="modal-overlay">
-                        <div className="modal-content">
-                            <h3 style={{ marginBottom: '20px' }}>Edit Staff Member</h3>
-                            <form onSubmit={handleUpdateEmployee}>
-                                <div className="form-group">
-                                    <label className="form-label">Full Name</label>
-                                    <input 
-                                        type="text" 
-                                        required 
-                                        className="form-input"
-                                        value={editEmpName}
-                                        onChange={e => setEditEmpName(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Email Address</label>
-                                    <input 
-                                        type="email" 
-                                        required 
-                                        className="form-input"
-                                        value={editEmpEmail}
-                                        onChange={e => setEditEmpEmail(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Phone Number</label>
-                                    <input 
-                                        type="text" 
-                                        className="form-input"
-                                        value={editEmpPhone}
-                                        onChange={e => setEditEmpPhone(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Designation</label>
-                                    <input 
-                                        type="text" 
-                                        className="form-input"
-                                        value={editEmpDesignation}
-                                        onChange={e => setEditEmpDesignation(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Role</label>
-                                    <select 
-                                        className="form-input"
-                                        value={editEmpRole}
-                                        disabled={editEmpRole === 'Admin'} // Owner Admins cannot have their role changed here
-                                        onChange={e => setEditEmpRole(e.target.value)}
-                                    >
-                                        <option value="Employee">Employee</option>
-                                        <option value="Secondary Admin">Super Admin</option>
-                                        <option value="Admin" disabled>Owner Admin</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Profile Image (Optional)</label>
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        className="form-input"
-                                        onChange={e => setEditEmpProfileImage(e.target.files[0])}
-                                    />
-                                    {editEmpProfileImageUrl && (
-                                        <div style={{ marginTop: '10px' }}>
-                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Current Profile Image:</span>
-                                            <br />
-                                            <img 
-                                                src={editEmpProfileImageUrl.startsWith('/uploads') ? `${getBackendUrl()}${editEmpProfileImageUrl}` : editEmpProfileImageUrl} 
-                                                alt="Profile Preview" 
-                                                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', marginTop: '5px' }}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                                    <button type="button" onClick={() => setShowEditEmpModal(false)} className="btn btn-secondary">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" className="btn btn-primary">
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
+
                 {showAnnModal && viewingAnn && (
                     <div className="modal-overlay">
                         <div className="modal-content" style={{ maxWidth: '500px', width: '90%', position: 'relative' }}>
