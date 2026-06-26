@@ -50,6 +50,14 @@ const OwnerAdminDashboard = () => {
     const [editEmpProfileImage, setEditEmpProfileImage] = useState(null);
     const [editEmpProfileImageUrl, setEditEmpProfileImageUrl] = useState('');
 
+    // Project Edit Modal States
+    const [showEditProjModal, setShowEditProjModal] = useState(false);
+    const [editingProj, setEditingProj] = useState(null);
+    const [editProjName, setEditProjName] = useState('');
+    const [editProjLocation, setEditProjLocation] = useState('');
+    const [editProjContact, setEditProjContact] = useState('');
+    const [editProjStatus, setEditProjStatus] = useState('Active');
+
     // Manage Checklist Modal
     const [showChecklistModal, setShowChecklistModal] = useState(false);
     const [checklistProjId, setChecklistProjId] = useState('');
@@ -303,6 +311,38 @@ const OwnerAdminDashboard = () => {
         }
     };
 
+    const handleOpenEditProjModal = (proj) => {
+        setEditingProj(proj);
+        setEditProjName(proj.name || '');
+        setEditProjLocation(proj.location || '');
+        setEditProjContact(proj.site_engineer_contact || '');
+        setEditProjStatus(proj.status || 'Active');
+        setShowEditProjModal(true);
+    };
+
+    const handleUpdateProject = async (e) => {
+        e.preventDefault();
+        if (!editingProj) return;
+        try {
+            await API.put(`/projects/${editingProj.id}`, {
+                name: editProjName,
+                location: editProjLocation,
+                site_engineer_contact: editProjContact,
+                status: editProjStatus
+            });
+            alert('Project updated successfully!');
+            setShowEditProjModal(false);
+            setEditingProj(null);
+            setEditProjName('');
+            setEditProjLocation('');
+            setEditProjContact('');
+            setEditProjStatus('Active');
+            loadDashboard();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to update project');
+        }
+    };
+
     const handleOpenChecklistModal = async (projId) => {
         setChecklistProjId(projId);
         try {
@@ -487,6 +527,47 @@ const OwnerAdminDashboard = () => {
             loadEmployees();
         } catch (e) {
             alert(e.response?.data?.message || 'Failed to change user role');
+        }
+    };
+
+    const handleOpenEditModal = (emp) => {
+        setEditEmpId(emp.id);
+        setEditEmpName(emp.name);
+        setEditEmpEmail(emp.email);
+        setEditEmpPhone(emp.phone_number || '');
+        setEditEmpDesignation(emp.designation || '');
+        setEditEmpRole(emp.role);
+        setEditEmpProfileImage(null);
+        setEditEmpProfileImageUrl(emp.profile_image_url || '');
+        setShowEditEmpModal(true);
+    };
+
+    const handleUpdateEmployee = async (e) => {
+        e.preventDefault();
+        try {
+            const formData = new FormData();
+            formData.append('name', editEmpName);
+            formData.append('email', editEmpEmail);
+            formData.append('phone_number', editEmpPhone);
+            formData.append('designation', editEmpDesignation);
+            formData.append('role', editEmpRole);
+            if (editEmpProfileImage) {
+                formData.append('profile_image', editEmpProfileImage);
+            }
+
+            await API.put(`/users/${editEmpId}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            setShowEditEmpModal(false);
+            loadEmployees();
+            loadDashboard();
+        } catch (err) {
+            console.error('Failed to update employee:', err);
+            const errMsg = err.response?.data?.message || err.message;
+            alert('Failed to update employee: ' + errMsg);
         }
     };
 
@@ -1200,9 +1281,14 @@ const OwnerAdminDashboard = () => {
                                             </div>
 
                                             {/* Tasks Checklist Button */}
-                                            <button onClick={() => handleOpenChecklistModal(proj.id)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                                                Tasks Checklist
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button onClick={() => handleOpenEditProjModal(proj)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                                    Edit Project
+                                                </button>
+                                                <button onClick={() => handleOpenChecklistModal(proj.id)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                                    Tasks Checklist
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -2495,6 +2581,164 @@ const OwnerAdminDashboard = () => {
                         </div>
                     );
                 })()}
+
+                {/* EDIT PROJECT MODAL */}
+                {showEditProjModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content">
+                            <h3 style={{ marginBottom: '20px' }}>Edit Project Details</h3>
+                            <form onSubmit={handleUpdateProject}>
+                                <div className="form-group">
+                                    <label className="form-label">Project Name</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        className="form-input"
+                                        value={editProjName}
+                                        onChange={e => setEditProjName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Location</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editProjLocation}
+                                        onChange={e => setEditProjLocation(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Site Contact Number</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editProjContact}
+                                        onChange={e => setEditProjContact(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '24px' }}>
+                                    <label className="form-label">Status</label>
+                                    <select 
+                                        className="form-select"
+                                        value={editProjStatus}
+                                        onChange={e => setEditProjStatus(e.target.value)}
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="On Hold">On Hold</option>
+                                        <option value="Closed">Closed</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                                        Save Changes
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary" 
+                                        style={{ flex: 1 }}
+                                        onClick={() => {
+                                            setShowEditProjModal(false);
+                                            setEditingProj(null);
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* EDIT EMPLOYEE MODAL */}
+                {showEditEmpModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content">
+                            <h3 style={{ marginBottom: '20px' }}>Edit Staff Member</h3>
+                            <form onSubmit={handleUpdateEmployee}>
+                                <div className="form-group">
+                                    <label className="form-label">Full Name</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        className="form-input"
+                                        value={editEmpName}
+                                        onChange={e => setEditEmpName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Email Address</label>
+                                    <input 
+                                        type="email" 
+                                        required 
+                                        className="form-input"
+                                        value={editEmpEmail}
+                                        onChange={e => setEditEmpEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Phone Number</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editEmpPhone}
+                                        onChange={e => setEditEmpPhone(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Designation</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editEmpDesignation}
+                                        onChange={e => setEditEmpDesignation(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Role</label>
+                                    <select 
+                                        className="form-input"
+                                        value={editEmpRole}
+                                        disabled={editEmpRole === 'Admin'} // Owner Admins cannot have their role changed here
+                                        onChange={e => setEditEmpRole(e.target.value)}
+                                    >
+                                        <option value="Employee">Employee</option>
+                                        <option value="Secondary Admin">Super Admin</option>
+                                        <option value="Admin" disabled>Owner Admin</option>
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Profile Image (Optional)</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        className="form-input"
+                                        onChange={e => setEditEmpProfileImage(e.target.files[0])}
+                                    />
+                                    {editEmpProfileImageUrl && (
+                                        <div style={{ marginTop: '10px' }}>
+                                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Current Profile Image:</span>
+                                            <br />
+                                            <img 
+                                                src={editEmpProfileImageUrl.startsWith('/uploads') ? `${getBackendUrl()}${editEmpProfileImageUrl}` : editEmpProfileImageUrl} 
+                                                alt="Profile Preview" 
+                                                style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', marginTop: '5px' }}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                                    <button type="button" onClick={() => setShowEditEmpModal(false)} className="btn btn-secondary">
+                                        Cancel
+                                    </button>
+                                    <button type="submit" className="btn btn-primary">
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {showAnnModal && viewingAnn && (
                     <div className="modal-overlay">
