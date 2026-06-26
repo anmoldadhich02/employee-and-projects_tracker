@@ -210,7 +210,15 @@ const OwnerAdminDashboard = () => {
         }
     };
 
-
+    const handleOpenNetworkFolder = async () => {
+        try {
+            await API.post('/users/open-network-folder');
+        } catch (e) {
+            console.error('Failed to open network folder:', e);
+            const errMsg = e.response?.data?.message || e.response?.data || e.message;
+            alert('Failed to open network folder: ' + errMsg);
+        }
+    };
 
     const fetchProjectSiteVisits = async (projId) => {
         try {
