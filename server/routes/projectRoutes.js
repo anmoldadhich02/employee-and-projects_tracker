@@ -12,7 +12,7 @@ router.route('/')
       .post(protect, createProject);
 
 router.route('/:id')
-      .put(protect, superAdmin, updateProject);
+      .put(protect, updateProject);
 
 // Task Routes within Project
 router.route('/:projectId/tasks')
