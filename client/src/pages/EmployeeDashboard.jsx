@@ -208,16 +208,6 @@ const EmployeeDashboard = () => {
         }
     };
 
-    const handleOpenNetworkFolder = async () => {
-        try {
-            await API.post('/users/open-network-folder');
-        } catch (e) {
-            console.error('Failed to open network folder:', e);
-            const errMsg = e.response?.data?.message || e.response?.data || e.message;
-            alert('Failed to open network folder: ' + errMsg);
-        }
-    };
-
 
 
     const loadDashboard = async () => {
@@ -981,34 +971,6 @@ const EmployeeDashboard = () => {
                             </button>
                         )}
 
-                        {/* Open Network Folder Button */}
-                        <button 
-                            onClick={handleOpenNetworkFolder} 
-                            className="btn" 
-                            style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '8px', 
-                                padding: '12px 18px', 
-                                background: 'rgba(255, 255, 255, 0.08)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '8px',
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                                fontSize: '13px',
-                                height: '52px',
-                                transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
-                            title="Open Desktop Network Folder"
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--accent-primary)' }}>
-                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <span>Network Folder</span>
-                        </button>
 
                         {/* Today's Ticking Timer */}
                         <div className="glass-card" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 24px', borderColor: isLoggedIn ? 'var(--accent-secondary)' : 'var(--border-color)' }}>

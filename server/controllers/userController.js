@@ -500,18 +500,35 @@ const deleteEmployee = async (req, res) => {
 const openNetworkFolder = async (req, res) => {
     console.log('[openNetworkFolder] Endpoint hit!');
     try {
-        const folderPath = '/Users/anmoldadhich/Desktop/network folder';
+        const folderPath = process.env.NETWORK_FOLDER_PATH || '/Users/anmoldadhich/Desktop/network folder';
         console.log(`[openNetworkFolder] Path: ${folderPath}`);
-        if (!fs.existsSync(folderPath)) {
-            console.log('[openNetworkFolder] Path does not exist. Creating...');
-            fs.mkdirSync(folderPath, { recursive: true });
-            console.log('[openNetworkFolder] Path created.');
-        } else {
-            console.log('[openNetworkFolder] Path exists.');
+        
+        // Wrap folder check/creation in a separate try-catch so it doesn't block opening
+        try {
+            const isNetworkPath = folderPath.startsWith('\\\\') || folderPath.startsWith('//');
+            if (!isNetworkPath && !fs.existsSync(folderPath)) {
+                console.log('[openNetworkFolder] Path does not exist. Creating...');
+                fs.mkdirSync(folderPath, { recursive: true });
+                console.log('[openNetworkFolder] Path created.');
+            }
+        } catch (dirError) {
+            console.warn('[openNetworkFolder] Warning during directory check/creation:', dirError.message);
         }
         
-        console.log('[openNetworkFolder] Executing command: open');
-        exec(`open "${folderPath}"`, (error, stdout, stderr) => {
+        let command;
+        if (process.platform === 'win32') {
+            // Windows expects backslashes for path
+            const winPath = folderPath.replace(/\//g, '\\');
+            // Use 'start' command, which is a shell builtin and returns exit code 0 when successful
+            command = `start "" "${winPath}"`;
+        } else if (process.platform === 'darwin') {
+            command = `open "${folderPath}"`;
+        } else {
+            command = `xdg-open "${folderPath}"`;
+        }
+
+        console.log(`[openNetworkFolder] Executing command: ${command}`);
+        exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error(`[openNetworkFolder] Failed to open folder error: ${error.message}`);
                 console.error(`[openNetworkFolder] stderr: ${stderr}`);
@@ -526,6 +543,77 @@ const openNetworkFolder = async (req, res) => {
     }
 };
 
+const updateEmployee = async (req, res) => {
+    const { id } = req.params;
+    const { name, email, phone_number, designation, role } = req.body;
+    const profile_image_url = req.file ? `/uploads/profiles/${req.file.filename}` : undefined;
+
+    try {
+        // 1. Check if user exists
+        const userCheck = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const user = userCheck.rows[0];
+
+        // 2. Prevent role changes or modifications of Owner Admin (role === 'Admin') by Secondary Admin
+        if (user.role === 'Admin' && req.user.role !== 'Admin') {
+            return res.status(403).json({ message: 'Only Owner Admin can modify Owner Admin accounts' });
+        }
+
+        // 3. Check if email conflicts with another user
+        if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+            const emailCheck = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [email, id]);
+            if (emailCheck.rows.length > 0) {
+                return res.status(400).json({ message: 'Email already in use by another user' });
+            }
+        }
+
+        // 4. Update the user details
+        let query;
+        let params;
+        if (profile_image_url !== undefined) {
+            query = `
+                UPDATE users 
+                SET name = $1, email = $2, phone_number = $3, designation = $4, role = $5, profile_image_url = $6
+                WHERE id = $7
+                RETURNING id, name, email, phone_number, designation, role, profile_image_url, status
+            `;
+            params = [
+                name || user.name, 
+                email || user.email, 
+                phone_number || user.phone_number, 
+                designation || user.designation, 
+                role || user.role, 
+                profile_image_url,
+                id
+            ];
+        } else {
+            query = `
+                UPDATE users 
+                SET name = $1, email = $2, phone_number = $3, designation = $4, role = $5
+                WHERE id = $6
+                RETURNING id, name, email, phone_number, designation, role, profile_image_url, status
+            `;
+            params = [
+                name || user.name, 
+                email || user.email, 
+                phone_number || user.phone_number, 
+                designation || user.designation, 
+                role || user.role, 
+                id
+            ];
+        }
+
+        const result = await pool.query(query, params);
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send('Server Error');
+    }
+};
+
 module.exports = { 
     loginUser, 
     createEmployee, 
@@ -537,5 +625,6 @@ module.exports = {
     getDashboardStats,
     deleteEmployee,
     uploadProfile,
-    openNetworkFolder
+    openNetworkFolder,
+    updateEmployee
 };
