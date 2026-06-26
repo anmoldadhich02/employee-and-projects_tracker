@@ -104,12 +104,7 @@ const OwnerAdminDashboard = () => {
     const [editingTaskId, setEditingTaskId] = useState(null);
     const [editingTaskTitle, setEditingTaskTitle] = useState('');
 
-    // Network File Explorer States
-    const [showNetworkExplorer, setShowNetworkExplorer] = useState(false);
-    const [networkFiles, setNetworkFiles] = useState([]);
-    const [currentNetworkPath, setCurrentNetworkPath] = useState('');
-    const [networkExplorerLoading, setNetworkExplorerLoading] = useState(false);
-    const [networkExplorerError, setNetworkExplorerError] = useState('');
+
 
     // Site Visit state matching Employee Dashboard
     const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -217,51 +212,13 @@ const OwnerAdminDashboard = () => {
         }
     };
 
-    const handleOpenNetworkExplorer = async (path = '') => {
-        setShowNetworkExplorer(true);
-        setNetworkExplorerLoading(true);
-        setNetworkExplorerError('');
+    const handleOpenNetworkFolder = async () => {
         try {
-            const res = await API.get(`/users/network-files?path=${encodeURIComponent(path)}`);
-            setNetworkFiles(res.data.files || []);
-            setCurrentNetworkPath(res.data.currentPath || '');
+            await API.post('/users/open-network-folder');
         } catch (e) {
-            console.error('Failed to load network files:', e);
-            const errMsg = e.response?.data?.message || e.message;
-            setNetworkExplorerError(errMsg);
-        } finally {
-            setNetworkExplorerLoading(false);
-        }
-    };
-
-    const handleNavigateNetwork = (dirName) => {
-        let newPath = '';
-        if (dirName === '..') {
-            const parts = currentNetworkPath.split('/').filter(Boolean);
-            parts.pop();
-            newPath = parts.join('/');
-        } else {
-            newPath = currentNetworkPath ? `${currentNetworkPath}/${dirName}` : dirName;
-        }
-        handleOpenNetworkExplorer(newPath);
-    };
-
-    const handleDownloadNetworkFile = async (fileName) => {
-        const filePath = currentNetworkPath ? `${currentNetworkPath}/${fileName}` : fileName;
-        try {
-            const res = await API.get(`/users/download-network-file?file=${encodeURIComponent(filePath)}`, {
-                responseType: 'blob'
-            });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', fileName);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-        } catch (e) {
-            console.error('Failed to download file:', e);
-            alert('Failed to download file: ' + (e.response?.data?.message || e.message));
+            console.error('Failed to open network folder:', e);
+            const errMsg = e.response?.data?.message || e.response?.data || e.message;
+            alert('Failed to open network folder: ' + errMsg);
         }
     };
 
@@ -1044,7 +1001,7 @@ const OwnerAdminDashboard = () => {
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                         {/* Open Network Folder Button */}
                         <button 
-                            onClick={() => handleOpenNetworkExplorer('')} 
+                            onClick={handleOpenNetworkFolder} 
                             className="btn" 
                             style={{ 
                                 display: 'flex', 
@@ -2789,162 +2746,6 @@ const OwnerAdminDashboard = () => {
                                     </button>
                                 </div>
                             </form>
-                        </div>
-                    </div>
-                )}
-
-                {/* LDP NETWORK FILE EXPLORER MODAL */}
-                {showNetworkExplorer && (
-                    <div className="modal-overlay">
-                        <div className="modal-content" style={{ maxWidth: '750px', width: '90%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                    LDP Files Explorer
-                                </h3>
-                                <button 
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => {
-                                        setShowNetworkExplorer(false);
-                                        setNetworkFiles([]);
-                                        setCurrentNetworkPath('');
-                                        setNetworkExplorerError('');
-                                    }}
-                                >
-                                    Close
-                                </button>
-                            </div>
-
-                            {/* Path Breadcrumbs */}
-                            <div style={{ 
-                                background: 'rgba(255, 255, 255, 0.04)', 
-                                padding: '10px 16px', 
-                                borderRadius: '8px', 
-                                marginBottom: '16px',
-                                border: '1px solid var(--border-color)',
-                                fontSize: '13px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                flexWrap: 'wrap'
-                            }}>
-                                <span 
-                                    style={{ color: 'var(--accent-primary)', cursor: 'pointer', fontWeight: '600' }}
-                                    onClick={() => handleOpenNetworkExplorer('')}
-                                >
-                                    LDP Root
-                                </span>
-                                {currentNetworkPath && currentNetworkPath.split('/').filter(Boolean).map((part, index, arr) => {
-                                    const pathUpToNow = arr.slice(0, index + 1).join('/');
-                                    return (
-                                        <span key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span style={{ color: 'var(--text-muted)' }}>/</span>
-                                            <span 
-                                                style={{ color: 'var(--text-primary)', cursor: 'pointer', fontWeight: index === arr.length - 1 ? '700' : '500' }}
-                                                onClick={() => handleOpenNetworkExplorer(pathUpToNow)}
-                                            >
-                                                {part}
-                                            </span>
-                                        </span>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Main Explorer Area */}
-                            <div style={{ flex: 1, overflowY: 'auto', minHeight: '200px', maxHeight: '450px' }}>
-                                {networkExplorerLoading ? (
-                                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                                        <div className="spinner" style={{ margin: '0 auto 12px auto' }}></div>
-                                        Loading files...
-                                    </div>
-                                ) : networkExplorerError ? (
-                                    <div style={{ color: '#ff4d4f', padding: '20px', textAlign: 'center', background: 'rgba(255, 77, 79, 0.05)', borderRadius: '8px', border: '1px solid rgba(255, 77, 79, 0.1)' }}>
-                                        <strong>Error: </strong> {networkExplorerError}
-                                    </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {/* Back Row */}
-                                        {currentNetworkPath && (
-                                            <div 
-                                                onClick={() => handleNavigateNetwork('..')}
-                                                style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    padding: '12px 16px', 
-                                                    borderRadius: '8px', 
-                                                    cursor: 'pointer',
-                                                    background: 'rgba(255, 255, 255, 0.02)',
-                                                    transition: 'all 0.15s',
-                                                    gap: '12px'
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'}
-                                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)'}
-                                            >
-                                                <span style={{ fontSize: '18px' }}>⬆️</span>
-                                                <span style={{ fontSize: '14px', fontWeight: '600', color: 'var(--accent-primary)' }}>.. (Go Back)</span>
-                                            </div>
-                                        )}
-
-                                        {/* File & Folder Listing */}
-                                        {networkFiles.map((file, idx) => (
-                                            <div 
-                                                key={idx}
-                                                onClick={() => file.isDir ? handleNavigateNetwork(file.name) : handleDownloadNetworkFile(file.name)}
-                                                style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    justifyContent: 'space-between',
-                                                    padding: '12px 16px', 
-                                                    borderRadius: '8px', 
-                                                    cursor: 'pointer',
-                                                    background: 'rgba(255, 255, 255, 0.01)',
-                                                    border: '1px solid transparent',
-                                                    transition: 'all 0.15s',
-                                                    gap: '12px'
-                                                }}
-                                                onMouseEnter={e => {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                                    e.currentTarget.style.borderColor = 'var(--border-color)';
-                                                }}
-                                                onMouseLeave={e => {
-                                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.01)';
-                                                    e.currentTarget.style.borderColor = 'transparent';
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
-                                                    {file.isDir ? (
-                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffa940" strokeWidth="2.5" style={{ flexShrink: 0 }}>
-                                                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                                        </svg>
-                                                    ) : (
-                                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#40a9ff" strokeWidth="2.5" style={{ flexShrink: 0 }}>
-                                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                                        </svg>
-                                                    )}
-                                                    <span style={{ fontSize: '14px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--text-primary)' }}>
-                                                        {file.name}
-                                                    </span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-muted)', fontSize: '12px', flexShrink: 0 }}>
-                                                    {!file.isDir && (
-                                                        <span>{file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`}</span>
-                                                    )}
-                                                    <span>{new Date(file.modifiedAt).toLocaleDateString()}</span>
-                                                </div>
-                                            </div>
-                                        ))}
-
-                                        {networkFiles.length === 0 && (
-                                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '14px' }}>
-                                                Empty folder
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     </div>
                 )}
