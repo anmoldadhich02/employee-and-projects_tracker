@@ -708,6 +708,16 @@ const downloadNetworkFile = async (req, res) => {
     }
 };
 
+const getNetworkFolderPath = async (req, res) => {
+    try {
+        const folderPath = process.env.NETWORK_FOLDER_PATH || '\\\\192.168.1.3\\Volume_1\\LDP';
+        res.json({ folderPath });
+    } catch (error) {
+        console.error('[getNetworkFolderPath] Error:', error.message);
+        res.status(500).json({ message: 'Server Error: ' + error.message });
+    }
+};
+
 module.exports = { 
     loginUser, 
     createEmployee, 
@@ -722,5 +732,6 @@ module.exports = {
     openNetworkFolder,
     updateEmployee,
     listNetworkFiles,
-    downloadNetworkFile
+    downloadNetworkFile,
+    getNetworkFolderPath
 };

@@ -12,6 +12,11 @@ const EmployeeDashboard = () => {
     const [tasks, setTasks] = useState([]);
     const [activeTab, setActiveTab] = useState('overview');
 
+    // LDP modal states
+    const [showLdpModal, setShowLdpModal] = useState(false);
+    const [ldpPath, setLdpPath] = useState('');
+    const [copySuccess, setCopySuccess] = useState(false);
+
     // Overview States
     const [stats, setStats] = useState({
         active_projects: 0,
@@ -218,12 +223,54 @@ const EmployeeDashboard = () => {
 
     const handleOpenNetworkFolder = async () => {
         try {
-            await API.post('/users/open-network-folder');
+            const res = await API.get('/users/network-folder-path');
+            const path = res.data.folderPath;
+            setLdpPath(path);
+            
+            // 1. Copy to clipboard
+            try {
+                await navigator.clipboard.writeText(path);
+                setCopySuccess(true);
+            } catch (err) {
+                console.warn('Failed to copy to clipboard automatically:', err);
+                setCopySuccess(false);
+            }
+
+            // 2. Open the custom URL protocol to trigger Windows Explorer
+            const protocolUrl = `open-ldp://${path.replace(/\\/g, '/')}`;
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = protocolUrl;
+            document.body.appendChild(iframe);
+            setTimeout(() => document.body.removeChild(iframe), 300);
+
+            // 3. Show helpful hybrid modal popup
+            setShowLdpModal(true);
         } catch (e) {
-            console.error('Failed to open network folder:', e);
-            const errMsg = e.response?.data?.message || e.response?.data || e.message;
-            alert('Failed to open network folder: ' + errMsg);
+            console.error('Failed to resolve network folder path:', e);
+            alert('Failed to fetch network folder path from server');
         }
+    };
+
+    const handleDownloadRegPatch = () => {
+        const regContent = `Windows Registry Editor Version 5.00\r\n\r\n` +
+`[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp]\r\n` +
+`@="URL:Open LDP Protocol"\r\n` +
+`"URL Protocol"=""\r\n\r\n` +
+`[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell]\r\n\r\n` +
+`[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell\\open]\r\n\r\n` +
+`[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell\\open\\command]\r\n` +
+`@="powershell -WindowStyle Hidden -Command \\"$u = '%1'; if ($u.StartsWith('open-ldp://', [System.StringComparison]::OrdinalIgnoreCase)) { $u = $u.Substring(11) } elseif ($u.StartsWith('open-ldp:', [System.StringComparison]::OrdinalIgnoreCase)) { $u = $u.Substring(9) }; $u = $u.Replace('/', '\\\\\\\\'); if ($u -notmatch '^[A-Za-z]:' -and -not $u.StartsWith('\\\\\\\\')) { $u = '\\\\\\\\' + $u }; if ($u.EndsWith('\\\\\\\\')) { $u = $u.Substring(0, $u.Length - 1) }; Start-Process explorer.exe $u\\""\r\n`;
+
+        const blob = new Blob([regContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'enable_direct_folder_opening.reg';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const loadDashboard = async () => {
@@ -2486,6 +2533,56 @@ const EmployeeDashboard = () => {
                     );
                 })()}
             </main>
+
+            {/* LDP Network Folder Modal */}
+            {showLdpModal && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-content" style={{ maxWidth: '500px', width: '90%', textAlign: 'center', padding: '30px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <div style={{ background: 'rgba(255, 169, 64, 0.1)', padding: '16px', borderRadius: '50%' }}>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--text-primary)' }}>Open LDP Folder</h3>
+                        
+                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '20px' }}>
+                            We have attempted to open the network folder directly in your File Explorer. 
+                        </p>
+
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '20px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
+                            {ldpPath}
+                        </div>
+
+                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '24px' }}>
+                            📋 <strong>The path has been copied to your clipboard.</strong><br/>
+                            If it didn't open automatically, press <kbd style={{ background: 'rgba(255, 255, 255, 0.1)', padding: '2px 6px', borderRadius: '4px', fontStyle: 'normal' }}>Win + R</kbd>, paste (Ctrl+V), and hit Enter.
+                        </p>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button 
+                                onClick={handleDownloadRegPatch} 
+                                className="btn btn-primary"
+                                style={{ width: '100%', padding: '12px', fontWeight: '600' }}
+                            >
+                                📥 Download One-Click Registry Patch
+                            </button>
+                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
+                                (Run this patch once on your machine to enable opening directly from the browser)
+                            </p>
+                            <button 
+                                onClick={() => setShowLdpModal(false)} 
+                                className="btn btn-secondary"
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border-color)' }}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

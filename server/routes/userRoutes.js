@@ -14,7 +14,8 @@ const {
     openNetworkFolder,
     updateEmployee,
     listNetworkFiles,
-    downloadNetworkFile
+    downloadNetworkFile,
+    getNetworkFolderPath
 } = require('../controllers/userController');
 const { protect, admin, superAdmin } = require('../middlewares/authMiddleware');
 
@@ -24,6 +25,7 @@ router.get('/dashboard', protect, getDashboardStats);
 router.post('/open-network-folder', protect, openNetworkFolder);
 router.get('/network-files', protect, listNetworkFiles);
 router.get('/download-network-file', protect, downloadNetworkFile);
+router.get('/network-folder-path', protect, getNetworkFolderPath);
 
 // Employee management (Protected, SuperAdmin/Admin only)
 router.route('/').get(protect, superAdmin, getEmployees).post(protect, superAdmin, uploadProfile.single('profile_image'), createEmployee);
