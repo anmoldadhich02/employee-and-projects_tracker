@@ -2552,14 +2552,9 @@ const EmployeeDashboard = () => {
                             We have attempted to open the network folder directly in your File Explorer. 
                         </p>
 
-                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '20px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
+                        <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '24px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
                             {ldpPath}
                         </div>
-
-                        <p style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '24px' }}>
-                            📋 <strong>The path has been copied to your clipboard.</strong><br/>
-                            If it didn't open automatically, press <kbd style={{ background: 'rgba(255, 255, 255, 0.1)', padding: '2px 6px', borderRadius: '4px', fontStyle: 'normal' }}>Win + R</kbd>, paste (Ctrl+V), and hit Enter.
-                        </p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <button 
