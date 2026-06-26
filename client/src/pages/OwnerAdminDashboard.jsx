@@ -2915,9 +2915,7 @@ const OwnerAdminDashboard = () => {
                         
                         <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--text-primary)' }}>Open LDP Folder</h3>
                         
-                        <p style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '20px' }}>
-                            We have attempted to open the network folder directly in your File Explorer. 
-                        </p>
+
 
                         <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '24px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
                             {ldpPath}
@@ -2931,9 +2929,7 @@ const OwnerAdminDashboard = () => {
                             >
                                 📥 Download One-Click Registry Patch
                             </button>
-                            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: '0 0 10px 0' }}>
-                                (Run this patch once on your machine to enable opening directly from the browser)
-                            </p>
+
                             <button 
                                 onClick={() => setShowLdpModal(false)} 
                                 className="btn btn-secondary"
