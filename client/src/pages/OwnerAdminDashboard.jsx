@@ -1017,7 +1017,7 @@ const OwnerAdminDashboard = () => {
                         <div className="user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {user?.profile_image_url ? (
                                 <img 
-                                    src={`http://localhost:5001${user.profile_image_url}`} 
+                                    src={`${getBackendUrl()}${user.profile_image_url}`} 
                                     alt={user.name} 
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
@@ -1168,7 +1168,7 @@ const OwnerAdminDashboard = () => {
                                                         <div className="staff-avatar-cell">
                                                             {emp.profile_image_url ? (
                                                                 <img 
-                                                                    src={`http://localhost:5001${emp.profile_image_url}`} 
+                                                                    src={`${getBackendUrl()}${emp.profile_image_url}`} 
                                                                     alt={emp.name} 
                                                                     style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
                                                                 />
@@ -1492,7 +1492,7 @@ const OwnerAdminDashboard = () => {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         {emp.profile_image_url ? (
                                                             <img 
-                                                                src={`http://localhost:5001${emp.profile_image_url}`} 
+                                                                src={`${getBackendUrl()}${emp.profile_image_url}`} 
                                                                 alt={emp.name} 
                                                                 style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
                                                             />
@@ -1858,7 +1858,7 @@ const OwnerAdminDashboard = () => {
                                                                             {photos.map((url, i) => (
                                                                                 <img 
                                                                                     key={i}
-                                                                                    src={`http://localhost:5001${url}`} 
+                                                                                    src={`${getBackendUrl()}${url}`} 
                                                                                     alt={`site visit photo ${i+1}`}
                                                                                     onClick={() => setPreviewPhoto(`${getBackendUrl()}${url}`)}
                                                                                     style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer' }}
@@ -2541,7 +2541,7 @@ const OwnerAdminDashboard = () => {
                                                     return (
                                                         <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
                                                             <img 
-                                                                src={`http://localhost:5001${url}`} 
+                                                                src={`${getBackendUrl()}${url}`} 
                                                                 alt="Site Visit Photo" 
                                                                 style={{ 
                                                                     width: '100%', 
