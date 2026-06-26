@@ -11,7 +11,8 @@ const {
     getDashboardStats,
     deleteEmployee,
     uploadProfile,
-    openNetworkFolder
+    openNetworkFolder,
+    updateEmployee
 } = require('../controllers/userController');
 const { protect, admin, superAdmin } = require('../middlewares/authMiddleware');
 
@@ -24,6 +25,7 @@ router.post('/open-network-folder', protect, openNetworkFolder);
 router.route('/').get(protect, superAdmin, getEmployees).post(protect, superAdmin, uploadProfile.single('profile_image'), createEmployee);
 
 // Employee administration
+router.put('/:id', protect, superAdmin, uploadProfile.single('profile_image'), updateEmployee);
 router.put('/:id/role', protect, admin, updateUserRole);
 router.put('/:id/status', protect, superAdmin, updateUserStatus);
 router.put('/:id/reset-password', protect, admin, resetUserPassword);

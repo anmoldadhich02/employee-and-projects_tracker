@@ -87,6 +87,14 @@ const EmployeeDashboard = () => {
     const [checklistTemplates, setChecklistTemplates] = useState([]);
     const [projectSearch, setProjectSearch] = useState('');
 
+    // Project Edit Modal
+    const [showEditProjModal, setShowEditProjModal] = useState(false);
+    const [editingProj, setEditingProj] = useState(null);
+    const [editProjName, setEditProjName] = useState('');
+    const [editProjLocation, setEditProjLocation] = useState('');
+    const [editProjContact, setEditProjContact] = useState('');
+    const [editProjStatus, setEditProjStatus] = useState('Active');
+
     // Site Visit Export Filters (Same as Admin)
     const [svProjectId, setSvProjectId] = useState('');
     const [svStartDate, setSvStartDate] = useState(() => {
@@ -228,6 +236,38 @@ const EmployeeDashboard = () => {
             loadDashboard();
         } catch (e) {
             alert('Failed to update project status');
+        }
+    };
+
+    const handleOpenEditProjModal = (proj) => {
+        setEditingProj(proj);
+        setEditProjName(proj.name || '');
+        setEditProjLocation(proj.location || '');
+        setEditProjContact(proj.site_engineer_contact || '');
+        setEditProjStatus(proj.status || 'Active');
+        setShowEditProjModal(true);
+    };
+
+    const handleUpdateProject = async (e) => {
+        e.preventDefault();
+        if (!editingProj) return;
+        try {
+            await API.put(`/projects/${editingProj.id}`, {
+                name: editProjName,
+                location: editProjLocation,
+                site_engineer_contact: editProjContact,
+                status: editProjStatus
+            });
+            alert('Project updated successfully!');
+            setShowEditProjModal(false);
+            setEditingProj(null);
+            setEditProjName('');
+            setEditProjLocation('');
+            setEditProjContact('');
+            setEditProjStatus('Active');
+            loadDashboard();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to update project');
         }
     };
 
@@ -1420,9 +1460,14 @@ const EmployeeDashboard = () => {
                                             </div>
 
                                             {/* Tasks Checklist Button */}
-                                            <button onClick={() => handleOpenChecklistModal(proj.id)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                                                Tasks Checklist
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button onClick={() => handleOpenEditProjModal(proj)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                                    Edit Project
+                                                </button>
+                                                <button onClick={() => handleOpenChecklistModal(proj.id)} className="btn btn-secondary btn-sm" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                                    Tasks Checklist
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -2041,6 +2086,73 @@ const EmployeeDashboard = () => {
                         </div>
                     );
                 })()}
+
+                {showEditProjModal && (
+                    <div className="modal-overlay">
+                        <div className="modal-content">
+                            <h3 style={{ marginBottom: '20px' }}>Edit Project Details</h3>
+                            <form onSubmit={handleUpdateProject}>
+                                <div className="form-group">
+                                    <label className="form-label">Project Name</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        className="form-input"
+                                        value={editProjName}
+                                        onChange={e => setEditProjName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Location</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editProjLocation}
+                                        onChange={e => setEditProjLocation(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Site Contact Number</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editProjContact}
+                                        onChange={e => setEditProjContact(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '24px' }}>
+                                    <label className="form-label">Status</label>
+                                    <select 
+                                        className="form-select"
+                                        value={editProjStatus}
+                                        onChange={e => setEditProjStatus(e.target.value)}
+                                    >
+                                        <option value="Active">Active</option>
+                                        <option value="On Hold">On Hold</option>
+                                        <option value="Closed">Closed</option>
+                                        <option value="Completed">Completed</option>
+                                    </select>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px' }}>
+                                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
+                                        Save Changes
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-secondary" 
+                                        style={{ flex: 1 }}
+                                        onClick={() => {
+                                            setShowEditProjModal(false);
+                                            setEditingProj(null);
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
 
                 {showAnnModal && viewingAnn && (
                     <div className="modal-overlay">
