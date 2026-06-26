@@ -500,7 +500,16 @@ const deleteEmployee = async (req, res) => {
 const openNetworkFolder = async (req, res) => {
     console.log('[openNetworkFolder] Endpoint hit!');
     try {
-        const folderPath = process.env.NETWORK_FOLDER_PATH || '/Users/anmoldadhich/Desktop/network folder';
+        const folderPath = process.env.NETWORK_FOLDER_PATH;
+
+        // If NETWORK_FOLDER_PATH is not configured, return a clear error
+        if (!folderPath || folderPath.trim() === '') {
+            console.error('[openNetworkFolder] NETWORK_FOLDER_PATH is not set in .env');
+            return res.status(400).json({ 
+                message: 'LDP folder path is not configured. Please set NETWORK_FOLDER_PATH in the server .env file.' 
+            });
+        }
+
         console.log(`[openNetworkFolder] Path: ${folderPath}`);
         
         // Wrap folder check/creation in a separate try-catch so it doesn't block opening
@@ -517,10 +526,15 @@ const openNetworkFolder = async (req, res) => {
         
         let command;
         if (process.platform === 'win32') {
-            // Windows expects backslashes for path
+            // On Windows: use the path with backslashes
+            // For UNC network paths (\\server\share), explorer.exe opens them correctly
             const winPath = folderPath.replace(/\//g, '\\');
-            // Use 'start' command, which is a shell builtin and returns exit code 0 when successful
-            command = `start "" "${winPath}"`;
+            if (winPath.startsWith('\\\\')) {
+                // Network UNC path — use explorer directly for reliability
+                command = `explorer "${winPath}"`;
+            } else {
+                command = `start "" "${winPath}"`;
+            }
         } else if (process.platform === 'darwin') {
             command = `open "${folderPath}"`;
         } else {
@@ -528,7 +542,7 @@ const openNetworkFolder = async (req, res) => {
         }
 
         console.log(`[openNetworkFolder] Executing command: ${command}`);
-        exec(command, (error, stdout, stderr) => {
+        exec(command, { shell: true }, (error, stdout, stderr) => {
             if (error) {
                 console.error(`[openNetworkFolder] Failed to open folder error: ${error.message}`);
                 console.error(`[openNetworkFolder] stderr: ${stderr}`);
