@@ -3,6 +3,10 @@ import AuthContext from '../context/AuthContext';
 import API from '../services/api';
 import logoImg from '../assets/logo.png';
 
+const getBackendUrl = () => {
+    return API.defaults.baseURL ? API.defaults.baseURL.replace(/\/api$/, '') : 'http://localhost:5001';
+};
+
 const EmployeeDashboard = () => {
     const { user, logout } = useContext(AuthContext);
     
@@ -1023,7 +1027,7 @@ const EmployeeDashboard = () => {
                         <div className="user-avatar" style={{ overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {user?.profile_image_url ? (
                                 <img 
-                                    src={`http://localhost:5001${user.profile_image_url}`} 
+                                    src={`${getBackendUrl()}${user.profile_image_url}`} 
                                     alt={user.name} 
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
@@ -1684,9 +1688,9 @@ const EmployeeDashboard = () => {
                                                                 ) : (
                                                                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                                                         {photos.map((url, i) => (
-                                                                            <a key={i} href={`http://localhost:5001${url}`} target="_blank" rel="noopener noreferrer">
+                                                                            <a key={i} href={`${getBackendUrl()}${url}`} target="_blank" rel="noopener noreferrer">
                                                                                 <img 
-                                                                                    src={`http://localhost:5001${url}`} 
+                                                                                    src={`${getBackendUrl()}${url}`} 
                                                                                     alt={`site visit photo ${i+1}`}
                                                                                     style={{ width: '54px', height: '54px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border-color)', cursor: 'pointer' }}
                                                                                 />
@@ -2075,7 +2079,7 @@ const EmployeeDashboard = () => {
                                                     return (
                                                         <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
                                                             <img 
-                                                                src={`http://localhost:5001${url}`} 
+                                                                src={`${getBackendUrl()}${url}`} 
                                                                 alt="Site Visit Photo" 
                                                                 style={{ 
                                                                     width: '100%', 
