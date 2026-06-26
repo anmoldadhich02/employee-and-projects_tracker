@@ -614,6 +614,100 @@ const updateEmployee = async (req, res) => {
     }
 };
 
+const listNetworkFiles = async (req, res) => {
+    try {
+        const rootPath = process.env.NETWORK_FOLDER_PATH || '/Users/anmoldadhich/Desktop/network folder';
+        const queryPath = req.query.path || '';
+        
+        // Resolve target path to prevent traversal
+        const resolvedPath = path.resolve(rootPath, queryPath);
+        if (!resolvedPath.startsWith(path.resolve(rootPath))) {
+            return res.status(403).json({ message: 'Access denied: Directory traversal detected' });
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+            // If the root network path doesn't exist, create it. If it's a subpath, return error.
+            if (resolvedPath === path.resolve(rootPath)) {
+                try {
+                    fs.mkdirSync(resolvedPath, { recursive: true });
+                } catch (mkdirErr) {
+                    console.error('[listNetworkFiles] Failed to create root network path:', mkdirErr.message);
+                    return res.status(404).json({ 
+                        message: 'Network folder path is currently offline or unreachable. Please verify your connection to ' + rootPath 
+                    });
+                }
+            } else {
+                return res.status(404).json({ message: 'Directory not found' });
+            }
+        }
+
+        const entries = fs.readdirSync(resolvedPath, { withFileTypes: true });
+        const files = entries.map(entry => {
+            const entryPath = path.join(resolvedPath, entry.name);
+            let size = 0;
+            let mtime = new Date();
+            try {
+                const stats = fs.statSync(entryPath);
+                size = stats.size;
+                mtime = stats.mtime;
+            } catch (e) {
+                // Ignore stat errors for broken links/locked files
+            }
+            return {
+                name: entry.name,
+                isDir: entry.isDirectory(),
+                size: size,
+                modifiedAt: mtime
+            };
+        });
+
+        // Sort: directories first, then alphabetically
+        files.sort((a, b) => {
+            if (a.isDir && !b.isDir) return -1;
+            if (!a.isDir && b.isDir) return 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        res.json({
+            currentPath: queryPath,
+            files
+        });
+    } catch (error) {
+        console.error('[listNetworkFiles] Error:', error.message);
+        res.status(500).json({ message: 'Server Error: ' + error.message });
+    }
+};
+
+const downloadNetworkFile = async (req, res) => {
+    try {
+        const rootPath = process.env.NETWORK_FOLDER_PATH || '/Users/anmoldadhich/Desktop/network folder';
+        const filePath = req.query.file || '';
+
+        if (!filePath) {
+            return res.status(400).json({ message: 'File parameter is required' });
+        }
+
+        const resolvedPath = path.resolve(rootPath, filePath);
+        if (!resolvedPath.startsWith(path.resolve(rootPath))) {
+            return res.status(403).json({ message: 'Access denied: Directory traversal detected' });
+        }
+
+        if (!fs.existsSync(resolvedPath)) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        const stat = fs.statSync(resolvedPath);
+        if (stat.isDirectory()) {
+            return res.status(400).json({ message: 'Cannot download a directory' });
+        }
+
+        res.download(resolvedPath, path.basename(resolvedPath));
+    } catch (error) {
+        console.error('[downloadNetworkFile] Error:', error.message);
+        res.status(500).json({ message: 'Server Error: ' + error.message });
+    }
+};
+
 module.exports = { 
     loginUser, 
     createEmployee, 
@@ -626,5 +720,7 @@ module.exports = {
     deleteEmployee,
     uploadProfile,
     openNetworkFolder,
-    updateEmployee
+    updateEmployee,
+    listNetworkFiles,
+    downloadNetworkFile
 };
