@@ -250,23 +250,33 @@ const getProjectTasks = async (req, res) => {
 // @access  Protected
 const updateSubtaskStatus = async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body; // 'Pending', 'In Progress', 'Completed'
+    const { status, subtask_name, sheet_no } = req.body;
     
     try {
         await pool.query('BEGIN');
         
-        const completedAt = status === 'Completed' ? new Date() : null;
-        const result = await pool.query(
-            `UPDATE subtasks 
-             SET status = $1, completed_at = $2 
-             WHERE id = $3 RETURNING *`,
-            [status, completedAt, id]
-        );
-        
-        if (result.rows.length === 0) {
+        // Fetch current subtask values
+        const currentRes = await pool.query('SELECT * FROM subtasks WHERE id = $1', [id]);
+        if (currentRes.rows.length === 0) {
             await pool.query('ROLLBACK');
             return res.status(404).json({ message: 'Subtask not found' });
         }
+        const currentSubtask = currentRes.rows[0];
+        
+        const newStatus = status !== undefined ? status : currentSubtask.status;
+        const newSubtaskName = subtask_name !== undefined ? subtask_name : currentSubtask.subtask_name;
+        const newSheetNo = sheet_no !== undefined ? sheet_no : currentSubtask.sheet_no;
+        
+        const completedAt = newStatus === 'Completed' ? 
+            (currentSubtask.status === 'Completed' ? currentSubtask.completed_at || new Date() : new Date()) : 
+            null;
+            
+        const result = await pool.query(
+            `UPDATE subtasks 
+             SET status = $1, completed_at = $2, subtask_name = $3, sheet_no = $4 
+             WHERE id = $5 RETURNING *`,
+            [newStatus, completedAt, newSubtaskName, newSheetNo, id]
+        );
         
         // Find project_id
         const taskRes = await pool.query('SELECT project_id FROM tasks WHERE id = $1', [result.rows[0].task_id]);

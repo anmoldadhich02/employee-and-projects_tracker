@@ -91,7 +91,13 @@ const SuperAdminDashboard = () => {
     const [activeAddSubtaskCategoryId, setActiveAddSubtaskCategoryId] = useState(null);
     const [saveTemplateName, setSaveTemplateName] = useState('');
     const [checklistTemplates, setChecklistTemplates] = useState([]);
-    const [projectSearch, setProjectSearch] = useState('');
+    
+    // Subtask Editing states
+    const [editingSubtaskId, setEditingSubtaskId] = useState(null);
+    const [editingSubtaskName, setEditingSubtaskName] = useState('');
+    const [editingSubtaskSheetNo, setEditingSubtaskSheetNo] = useState('');
+
+        const [projectSearch, setProjectSearch] = useState('');
 
     // Site Visit Export Filters
     const [svProjectId, setSvProjectId] = useState('');
@@ -521,6 +527,26 @@ const SuperAdminDashboard = () => {
         }
     };
 
+    const handleSaveEditSubtask = async (subtaskId) => {
+        if (!editingSubtaskName.trim()) {
+            alert('Description is required');
+            return;
+        }
+        try {
+            await API.put(`/tasks/subtasks/${subtaskId}`, {
+                subtask_name: editingSubtaskName.trim(),
+                sheet_no: editingSubtaskSheetNo.trim()
+            });
+            const res = await API.get(`/projects/${checklistProjId}/tasks`);
+            setProjectTasks(res.data);
+            if (selectedProjectId === checklistProjId) {
+                setTasks(res.data);
+            }
+            setEditingSubtaskId(null);
+        } catch (e) {
+            alert('Failed to update subtask');
+        }
+    };
     const handleDeleteCategory = async (categoryId) => {
         if (!window.confirm('Are you sure you want to delete this category and all its subtasks?')) return;
         try {
@@ -2563,41 +2589,99 @@ const SuperAdminDashboard = () => {
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                {category.subtasks && category.subtasks.map(sub => (
-                                                                    <tr key={sub.id}>
-                                                                        <td style={{ fontWeight: '500' }}>{sub.subtask_name}</td>
-                                                                        <td>
-                                                                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)' }}>{sub.sheet_no || '--'}</span>
-                                                                        </td>
-                                                                        <td>
-                                                                            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                                                                {sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '--'}
-                                                                            </span>
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'center' }}>
-                                                                            <select 
-                                                                                value={sub.status || 'Pending'} 
-                                                                                onChange={(e) => handleToggleSubtaskStatus(sub.id, e.target.value, checklistProjId)} 
-                                                                                className={`status-select ${
-                                                                                    (sub.status || 'Pending') === 'Completed' ? 'completed' : 
-                                                                                    (sub.status || 'Pending') === 'In Progress' ? 'in-progress' : 'pending'
-                                                                                }`}
-                                                                            >
-                                                                                <option value="Pending">Pending</option>
-                                                                                <option value="In Progress">In Progress</option>
-                                                                                <option value="Completed">Completed</option>
-                                                                            </select>
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'center' }}>
-                                                                            <button 
-                                                                                onClick={() => handleDeleteSubtask(sub.id)}
-                                                                                style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
-                                                                            >
-                                                                                ✕
-                                                                            </button>
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
+                                                                {category.subtasks && category.subtasks.map(sub => {
+                                                                    const isEditing = editingSubtaskId === sub.id;
+                                                                    return (
+                                                                        <tr key={sub.id}>
+                                                                            <td>
+                                                                                {isEditing ? (
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        className="form-input" 
+                                                                                        value={editingSubtaskName} 
+                                                                                        onChange={e => setEditingSubtaskName(e.target.value)} 
+                                                                                        style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }} 
+                                                                                    />
+                                                                                ) : (
+                                                                                    <span style={{ fontWeight: '500' }}>{sub.subtask_name}</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td>
+                                                                                {isEditing ? (
+                                                                                    <input 
+                                                                                        type="text" 
+                                                                                        className="form-input" 
+                                                                                        value={editingSubtaskSheetNo} 
+                                                                                        onChange={e => setEditingSubtaskSheetNo(e.target.value)} 
+                                                                                        style={{ width: '100%', padding: '4px 8px', fontSize: '13px' }} 
+                                                                                    />
+                                                                                ) : (
+                                                                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-secondary)' }}>{sub.sheet_no || '--'}</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td>
+                                                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                                                                    {sub.completed_at ? new Date(sub.completed_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '--'}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'center' }}>
+                                                                                <select 
+                                                                                    value={sub.status || 'Pending'} 
+                                                                                    onChange={(e) => handleToggleSubtaskStatus(sub.id, e.target.value, checklistProjId)} 
+                                                                                    className={`status-select ${
+                                                                                        (sub.status || 'Pending') === 'Completed' ? 'completed' : 
+                                                                                        (sub.status || 'Pending') === 'In Progress' ? 'in-progress' : 'pending'
+                                                                                    }`}
+                                                                                >
+                                                                                    <option value="Pending">Pending</option>
+                                                                                    <option value="In Progress">In Progress</option>
+                                                                                    <option value="Completed">Completed</option>
+                                                                                </select>
+                                                                            </td>
+                                                                            <td style={{ textAlign: 'center' }}>
+                                                                                {isEditing ? (
+                                                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                                        <button 
+                                                                                            onClick={() => handleSaveEditSubtask(sub.id)}
+                                                                                            style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '15px', padding: '4px' }}
+                                                                                            title="Save Changes"
+                                                                                        >
+                                                                                            💾
+                                                                                        </button>
+                                                                                        <button 
+                                                                                            onClick={() => setEditingSubtaskId(null)}
+                                                                                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '15px', padding: '4px' }}
+                                                                                            title="Cancel"
+                                                                                        >
+                                                                                            ✕
+                                                                                        </button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                                        <button 
+                                                                                            onClick={() => {
+                                                                                                setEditingSubtaskId(sub.id);
+                                                                                                setEditingSubtaskName(sub.subtask_name);
+                                                                                                setEditingSubtaskSheetNo(sub.sheet_no || '');
+                                                                                            }}
+                                                                                            style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', cursor: 'pointer', fontSize: '13px', padding: '4px' }}
+                                                                                            title="Edit drawing checklist item"
+                                                                                        >
+                                                                                            ✏️
+                                                                                        </button>
+                                                                                        <button 
+                                                                                            onClick={() => handleDeleteSubtask(sub.id)}
+                                                                                            style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                                                                                            title="Delete drawing checklist item"
+                                                                                        >
+                                                                                            ✕
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
 
                                                                 {/* Add subtask */}
                                                                 {activeAddSubtaskCategoryId === category.id ? (
