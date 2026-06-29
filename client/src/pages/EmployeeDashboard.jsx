@@ -889,6 +889,11 @@ const EmployeeDashboard = () => {
                         <span>Overview</span>
                     </div>
 
+                    <div className={`nav-item ${activeTab === 'live-status' ? 'active' : ''}`} onClick={() => setActiveTab('live-status')}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                        <span>Live Status</span>
+                    </div>
+
                     <div className="nav-section-header">Operations</div>
                     <div className={`nav-item ${activeTab === 'site-visits' ? 'active' : ''}`} onClick={() => setActiveTab('site-visits')}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -1058,7 +1063,7 @@ const EmployeeDashboard = () => {
                             </>
                         ) : (
                             <h1 style={{ fontSize: '32px', margin: 0, textTransform: 'capitalize' }}>
-                                {activeTab === 'site-visits' ? 'Site Visits' : activeTab} Management
+                                {activeTab === 'site-visits' ? 'Site Visits' : activeTab === 'live-status' ? 'Live Employee Status' : activeTab} {activeTab !== 'live-status' && 'Management'}
                             </h1>
                         )}
                     </div>
@@ -1131,7 +1136,7 @@ const EmployeeDashboard = () => {
                             </div>
 
                             {/* Live Active Staff */}
-                            <div className="glass-card stat-card success">
+                            <div className="glass-card stat-card success" onClick={() => setActiveTab('live-status')} style={{ cursor: 'pointer' }}>
                                 <div className="stat-card-header">
                                     <span className="stat-label">Live Active Staff</span>
                                     <div className="stat-card-icon">
@@ -1473,6 +1478,76 @@ const EmployeeDashboard = () => {
                             </div>
                         </div>
                     </>
+                )}
+
+                {/* LIVE STATUS TAB */}
+                {activeTab === 'live-status' && (
+                    <section className="glass-card" style={{ flex: 1 }}>
+                        <h3 style={{ marginBottom: '20px' }}>Live Employee Status</h3>
+                        <div className="table-container">
+                            <table className="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>Staff Member</th>
+                                        <th>Activity Status</th>
+                                        <th>Current Project</th>
+                                        <th>Time Today</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {liveEmployees.map(emp => (
+                                        <tr key={emp.id}>
+                                            <td>
+                                                <div className="staff-avatar-cell">
+                                                    {emp.profile_image_url ? (
+                                                        <img 
+                                                            src={`${getBackendUrl()}${emp.profile_image_url}`} 
+                                                            alt={emp.name} 
+                                                            style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--stone-line)' }}
+                                                        />
+                                                    ) : (
+                                                        <div className="staff-avatar">
+                                                            {emp.name ? emp.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{emp.name}</div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{emp.designation}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className={`status-pill-entry ${emp.is_working ? 'online' : 'offline'}`}>
+                                                    <span className="status-pill-dot" />
+                                                    <span>{emp.is_working ? 'Working' : 'Offline'}</span>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                 {emp.current_project ? (
+                                                     <div>
+                                                         <div style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{emp.current_project}</div>
+                                                         {emp.current_task && (
+                                                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                                 Task: <span style={{ color: 'var(--accent-secondary, #06b6d4)' }}>{emp.current_task}</span>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 ) : (
+                                                     '--'
+                                                 )}
+                                            </td>
+                                            <td>{emp.total_hours_today} hrs</td>
+                                        </tr>
+                                    ))}
+                                    {liveEmployees.length === 0 && (
+                                        <tr>
+                                            <td colSpan="4" style={{ textAlign: 'center', padding: '24px' }}>No employee data available.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 )}
 
                 {/* PROJECTS TAB */}
