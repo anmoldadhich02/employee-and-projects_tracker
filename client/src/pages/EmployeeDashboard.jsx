@@ -2625,21 +2625,48 @@ const EmployeeDashboard = () => {
                             </div>
                         </div>
                         
-                        <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--text-primary)' }}>Open LDP Folder</h3>
-                        
-
+                        <h3 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                            We have attempted to open the network folder directly in your File Explorer. If it did not open, copy the path or download the patch below.
+                        </p>
 
                         <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '24px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
                             {ldpPath}
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <button 
-                                onClick={handleDownloadRegPatch} 
+                            <button
+                                onClick={() => {
+                                    try {
+                                        if (navigator.clipboard && window.isSecureContext) {
+                                            navigator.clipboard.writeText(ldpPath);
+                                        } else {
+                                            const ta = document.createElement('textarea');
+                                            ta.value = ldpPath;
+                                            ta.style.position = 'fixed';
+                                            ta.style.opacity = '0';
+                                            document.body.appendChild(ta);
+                                            ta.focus();
+                                            ta.select();
+                                            document.execCommand('copy');
+                                            document.body.removeChild(ta);
+                                        }
+                                        setCopySuccess(true);
+                                        setTimeout(() => setCopySuccess(false), 2000);
+                                    } catch(err) { /* silent */ }
+                                }}
                                 className="btn btn-primary"
                                 style={{ width: '100%', padding: '12px', fontWeight: '600' }}
                             >
-                                📥 Download One-Click Registry Patch
+                                {copySuccess ? '✅ Path Copied!' : '📋 Copy Path'}
+                            </button>
+
+                            <button 
+                                onClick={handleDownloadRegPatch} 
+                                className="btn btn-secondary"
+                                style={{ width: '100%', padding: '10px' }}
+                            >
+                                📥 Download Registry Patch
                             </button>
 
                             <button 

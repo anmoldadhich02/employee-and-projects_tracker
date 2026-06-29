@@ -248,7 +248,15 @@ const OwnerAdminDashboard = () => {
                 setCopySuccess(false);
             }
 
-            // Show the modal
+            // 2. Open the custom URL protocol to trigger Windows Explorer
+            const protocolUrl = `open-ldp://${path.replace(/\\/g, '/')}`;
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = protocolUrl;
+            document.body.appendChild(iframe);
+            setTimeout(() => document.body.removeChild(iframe), 300);
+
+            // 3. Show the modal
             setShowLdpModal(true);
         } catch (e) {
             console.error('Failed to resolve network folder path:', e);
@@ -2931,85 +2939,74 @@ const OwnerAdminDashboard = () => {
                 )}
             </main>
 
-            {/* LDP Network Folder Modal */}
-            {showLdpModal && (() => {
-                // Convert UNC path \\server\share to file://server/share for the anchor href
-                const fileUri = ldpPath
-                    ? 'file:' + ldpPath.replace(/\\/g, '/')
-                    : '';
-                return (
-                    <div className="modal-overlay" style={{ zIndex: 1100 }}>
-                        <div className="modal-content" style={{ maxWidth: '480px', width: '90%', textAlign: 'center', padding: '30px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
-                                <div style={{ background: 'rgba(255, 169, 64, 0.1)', padding: '16px', borderRadius: '50%' }}>
-                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                                    </svg>
-                                </div>
-                            </div>
-
-                            <h3 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                                Click <strong>Open Folder</strong> to open directly in Windows Explorer,<br/>or copy the path and paste it in Explorer's address bar.
-                            </p>
-
-                            {/* Path display */}
-                            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '20px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)', userSelect: 'all' }}>
-                                {ldpPath}
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {/* Primary: file:// link opens directly in Explorer on Windows */}
-                                <a
-                                    href={fileUri}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="btn btn-primary"
-                                    style={{ width: '100%', padding: '12px', fontWeight: '600', textDecoration: 'none', display: 'block', textAlign: 'center' }}
-                                    onClick={() => setShowLdpModal(false)}
-                                >
-                                    📂 Open Folder
-                                </a>
-
-                                {/* Copy path button */}
-                                <button
-                                    onClick={() => {
-                                        try {
-                                            if (navigator.clipboard && window.isSecureContext) {
-                                                navigator.clipboard.writeText(ldpPath);
-                                            } else {
-                                                const ta = document.createElement('textarea');
-                                                ta.value = ldpPath;
-                                                ta.style.position = 'fixed';
-                                                ta.style.opacity = '0';
-                                                document.body.appendChild(ta);
-                                                ta.focus();
-                                                ta.select();
-                                                document.execCommand('copy');
-                                                document.body.removeChild(ta);
-                                            }
-                                            setCopySuccess(true);
-                                            setTimeout(() => setCopySuccess(false), 2000);
-                                        } catch(err) { /* silent */ }
-                                    }}
-                                    className="btn btn-secondary"
-                                    style={{ width: '100%', padding: '10px' }}
-                                >
-                                    {copySuccess ? '✅ Path Copied!' : '📋 Copy Path'}
-                                </button>
-
-                                <button
-                                    onClick={() => setShowLdpModal(false)}
-                                    className="btn btn-secondary"
-                                    style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)' }}
-                                >
-                                    Dismiss
-                                </button>
+            {showLdpModal && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-content" style={{ maxWidth: '480px', width: '90%', textAlign: 'center', padding: '30px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <div style={{ background: 'rgba(255, 169, 64, 0.1)', padding: '16px', borderRadius: '50%' }}>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
                             </div>
                         </div>
+
+                        <h3 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                            We have attempted to open the network folder directly in your File Explorer. If it did not open, download the patch below.
+                        </p>
+
+                        {/* Path display */}
+                        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '20px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)', userSelect: 'all' }}>
+                            {ldpPath}
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {/* Copy path button */}
+                            <button
+                                onClick={() => {
+                                    try {
+                                        if (navigator.clipboard && window.isSecureContext) {
+                                            navigator.clipboard.writeText(ldpPath);
+                                        } else {
+                                            const ta = document.createElement('textarea');
+                                            ta.value = ldpPath;
+                                            ta.style.position = 'fixed';
+                                            ta.style.opacity = '0';
+                                            document.body.appendChild(ta);
+                                            ta.focus();
+                                            ta.select();
+                                            document.execCommand('copy');
+                                            document.body.removeChild(ta);
+                                        }
+                                        setCopySuccess(true);
+                                        setTimeout(() => setCopySuccess(false), 2000);
+                                    } catch(err) { /* silent */ }
+                                }}
+                                className="btn btn-primary"
+                                style={{ width: '100%', padding: '12px', fontWeight: '600' }}
+                            >
+                                {copySuccess ? '✅ Path Copied!' : '📋 Copy Path'}
+                            </button>
+
+                            <button
+                                onClick={handleDownloadRegPatch}
+                                className="btn btn-secondary"
+                                style={{ width: '100%', padding: '10px' }}
+                            >
+                                📥 Download Registry Patch
+                            </button>
+
+                            <button
+                                onClick={() => setShowLdpModal(false)}
+                                className="btn btn-secondary"
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)' }}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
                     </div>
-                );
-            })()}
+                </div>
+            )}
         </div>
     );
 };
