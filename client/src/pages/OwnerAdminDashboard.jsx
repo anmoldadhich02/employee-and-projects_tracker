@@ -256,7 +256,7 @@ const OwnerAdminDashboard = () => {
             document.body.appendChild(iframe);
             setTimeout(() => document.body.removeChild(iframe), 300);
 
-
+            setShowLdpModal(true);
         } catch (e) {
             console.error('Failed to resolve network folder path:', e);
             alert('Failed to fetch network folder path from server');
@@ -2939,6 +2939,38 @@ const OwnerAdminDashboard = () => {
             </main>
 
 
+            {showLdpModal && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-content" style={{ maxWidth: '440px', width: '90%', textAlign: 'center', padding: '30px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+                            <div style={{ background: 'rgba(255, 169, 64, 0.1)', padding: '16px', borderRadius: '50%' }}>
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <h3 style={{ fontSize: '20px', marginBottom: '20px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button
+                                onClick={handleDownloadRegPatch}
+                                className="btn btn-primary"
+                                style={{ width: '100%', padding: '12px', fontWeight: '600' }}
+                            >
+                                📥 Download Registry Patch
+                            </button>
+
+                            <button
+                                onClick={() => setShowLdpModal(false)}
+                                className="btn btn-secondary"
+                                style={{ width: '100%', padding: '10px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)' }}
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
