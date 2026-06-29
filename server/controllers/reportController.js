@@ -199,7 +199,7 @@ const exportProjectsReport = async (req, res) => {
 const exportEmployeesReport = async (req, res) => {
     try {
         const query = `
-            SELECT u.name, u.email, u.phone_number, u.designation, u.role
+            SELECT u.name, u.email, u.phone_number, u.emergency_contact, u.designation, u.role
             FROM users u
             WHERE u.is_deleted = FALSE
             ORDER BY u.name ASC
@@ -212,7 +212,7 @@ const exportEmployeesReport = async (req, res) => {
         worksheet.views = [{ showGridLines: true }];
 
         // Row 1: Title block
-        worksheet.mergeCells('A1:E1');
+        worksheet.mergeCells('A1:F1');
         const titleCell = worksheet.getCell('A1');
         titleCell.value = 'Employees Master Register';
         titleCell.font = { name: 'Arial', size: 16, bold: true };
@@ -220,7 +220,7 @@ const exportEmployeesReport = async (req, res) => {
         titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
 
         // Row 2: Generated Subtitle block
-        worksheet.mergeCells('A2:E2');
+        worksheet.mergeCells('A2:F2');
         const subtitleCell = worksheet.getCell('A2');
         const dateStr = new Date().toLocaleDateString('en-US', { 
             year: 'numeric', 
@@ -237,7 +237,7 @@ const exportEmployeesReport = async (req, res) => {
 
         // Row 4: Column Headers
         worksheet.getRow(4).values = [
-            'Name', 'Email', 'Phone Number', 'Designation', 'Role'
+            'Name', 'Email', 'Phone Number', 'Emergency Contact', 'Designation', 'Role'
         ];
         worksheet.getRow(4).height = 28;
 
@@ -245,11 +245,12 @@ const exportEmployeesReport = async (req, res) => {
         worksheet.getColumn(1).width = 22; // Name
         worksheet.getColumn(2).width = 28; // Email
         worksheet.getColumn(3).width = 20; // Phone Number
-        worksheet.getColumn(4).width = 20; // Designation
-        worksheet.getColumn(5).width = 18; // Role
+        worksheet.getColumn(4).width = 22; // Emergency Contact
+        worksheet.getColumn(5).width = 20; // Designation
+        worksheet.getColumn(6).width = 18; // Role
 
         // Format header styling
-        ['A4', 'B4', 'C4', 'D4', 'E4'].forEach(cellRef => {
+        ['A4', 'B4', 'C4', 'D4', 'E4', 'F4'].forEach(cellRef => {
             const cell = worksheet.getCell(cellRef);
             cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFF' } };
             cell.fill = {
@@ -272,12 +273,14 @@ const exportEmployeesReport = async (req, res) => {
             
             // Format phone number safely as text to prevent scientific notation conversion
             const phoneVal = row.phone_number ? String(row.phone_number).trim() : '---';
+            const emergencyVal = row.emergency_contact ? String(row.emergency_contact).trim() : '---';
             const formattedRole = row.role === 'Admin' ? 'Owner Admin' : row.role === 'Secondary Admin' ? 'Super Admin' : 'Employee';
 
             worksheet.addRow([
                 row.name,
                 row.email,
                 phoneVal,
+                emergencyVal,
                 row.designation || '---',
                 formattedRole
             ]);
@@ -291,13 +294,14 @@ const exportEmployeesReport = async (req, res) => {
             worksheet.getCell(`B${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'left' };
             worksheet.getCell(`C${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'left' };
             worksheet.getCell(`D${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'left' };
-            worksheet.getCell(`E${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'center' };
+            worksheet.getCell(`E${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'left' };
+            worksheet.getCell(`F${rowIndex}`).alignment = { vertical: 'middle', horizontal: 'center' };
 
             // Bold Name (now column A)
             worksheet.getCell(`A${rowIndex}`).font = { name: 'Arial', size: 10, bold: true };
 
             // Borders for all cells in the row
-            ['A', 'B', 'C', 'D', 'E'].forEach(col => {
+            ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
                 const cell = worksheet.getCell(`${col}${rowIndex}`);
                 if (col !== 'A') {
                     cell.font = { name: 'Arial', size: 10 };

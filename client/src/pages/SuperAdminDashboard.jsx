@@ -109,6 +109,7 @@ const SuperAdminDashboard = () => {
     const [empName, setEmpName] = useState('');
     const [empEmail, setEmpEmail] = useState('');
     const [empPhone, setEmpPhone] = useState('');
+    const [empEmergencyContact, setEmpEmergencyContact] = useState('');
     const [empDesignation, setEmpDesignation] = useState('');
     const [empPassword, setEmpPassword] = useState('');
     const [empRole, setEmpRole] = useState('Employee');
@@ -123,6 +124,7 @@ const SuperAdminDashboard = () => {
     const [editEmpName, setEditEmpName] = useState('');
     const [editEmpEmail, setEditEmpEmail] = useState('');
     const [editEmpPhone, setEditEmpPhone] = useState('');
+    const [editEmpEmergencyContact, setEditEmpEmergencyContact] = useState('');
     const [editEmpDesignation, setEditEmpDesignation] = useState('');
     const [editEmpRole, setEditEmpRole] = useState('');
     const [editEmpProfileImage, setEditEmpProfileImage] = useState(null);
@@ -775,6 +777,7 @@ const SuperAdminDashboard = () => {
             formData.append('name', empName);
             formData.append('email', empEmail);
             formData.append('phone_number', empPhone);
+            formData.append('emergency_contact', empEmergencyContact);
             formData.append('designation', empDesignation);
             formData.append('password', empPassword);
             formData.append('role', empRole);
@@ -789,6 +792,7 @@ const SuperAdminDashboard = () => {
             setEmpName('');
             setEmpEmail('');
             setEmpPhone('');
+            setEmpEmergencyContact('');
             setEmpDesignation('');
             setEmpPassword('');
             setEmpRole('Employee');
@@ -867,6 +871,7 @@ const SuperAdminDashboard = () => {
         setEditEmpName(emp.name);
         setEditEmpEmail(emp.email);
         setEditEmpPhone(emp.phone_number || '');
+        setEditEmpEmergencyContact(emp.emergency_contact || '');
         setEditEmpDesignation(emp.designation || '');
         setEditEmpRole(emp.role);
         setEditEmpProfileImage(null);
@@ -881,6 +886,7 @@ const SuperAdminDashboard = () => {
             formData.append('name', editEmpName);
             formData.append('email', editEmpEmail);
             formData.append('phone_number', editEmpPhone);
+            formData.append('emergency_contact', editEmpEmergencyContact);
             formData.append('designation', editEmpDesignation);
             formData.append('role', editEmpRole);
             if (editEmpProfileImage) {
@@ -1781,6 +1787,15 @@ const SuperAdminDashboard = () => {
                                             className="form-input"
                                             value={empPhone}
                                             onChange={e => setEmpPhone(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Emergency Contact Number</label>
+                                        <input 
+                                            type="text" 
+                                            className="form-input"
+                                            value={empEmergencyContact}
+                                            onChange={e => setEmpEmergencyContact(e.target.value)}
                                         />
                                     </div>
                                     <div className="form-group">
@@ -2894,6 +2909,15 @@ const SuperAdminDashboard = () => {
                                         className="form-input"
                                         value={editEmpPhone}
                                         onChange={e => setEditEmpPhone(e.target.value)}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Emergency Contact Number</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-input"
+                                        value={editEmpEmergencyContact}
+                                        onChange={e => setEditEmpEmergencyContact(e.target.value)}
                                     />
                                 </div>
                                 <div className="form-group">

@@ -108,7 +108,7 @@ const loginUser = async (req, res) => {
 };
 
 const createEmployee = async (req, res) => {
-    const { name, email, phone_number, designation, password, role } = req.body;
+    const { name, email, phone_number, emergency_contact, designation, password, role } = req.body;
     const profile_image_url = req.file ? `/uploads/profiles/${req.file.filename}` : null;
 
     try {
@@ -121,8 +121,8 @@ const createEmployee = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = await pool.query(
-            'INSERT INTO users (name, email, phone_number, designation, password, role, profile_image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, email, role, profile_image_url',
-            [name, email, phone_number, designation, hashedPassword, role || 'Employee', profile_image_url]
+            'INSERT INTO users (name, email, phone_number, emergency_contact, designation, password, role, profile_image_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, name, email, role, profile_image_url',
+            [name, email, phone_number, emergency_contact || null, designation, hashedPassword, role || 'Employee', profile_image_url]
         );
 
         res.status(201).json(newUser.rows[0]);
@@ -134,7 +134,7 @@ const createEmployee = async (req, res) => {
 
 const getEmployees = async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, name, email, phone_number, designation, role, status, profile_image_url FROM users WHERE is_deleted = FALSE ORDER BY created_at DESC');
+        const result = await pool.query('SELECT id, name, email, phone_number, emergency_contact, designation, role, status, profile_image_url FROM users WHERE is_deleted = FALSE ORDER BY created_at DESC');
         res.json(result.rows);
     } catch (error) {
         res.status(500).send('Server Error');
@@ -559,7 +559,7 @@ const openNetworkFolder = async (req, res) => {
 
 const updateEmployee = async (req, res) => {
     const { id } = req.params;
-    const { name, email, phone_number, designation, role } = req.body;
+    const { name, email, phone_number, emergency_contact, designation, role } = req.body;
     const profile_image_url = req.file ? `/uploads/profiles/${req.file.filename}` : undefined;
 
     try {
@@ -590,14 +590,15 @@ const updateEmployee = async (req, res) => {
         if (profile_image_url !== undefined) {
             query = `
                 UPDATE users 
-                SET name = $1, email = $2, phone_number = $3, designation = $4, role = $5, profile_image_url = $6
-                WHERE id = $7
-                RETURNING id, name, email, phone_number, designation, role, profile_image_url, status
+                SET name = $1, email = $2, phone_number = $3, emergency_contact = $4, designation = $5, role = $6, profile_image_url = $7
+                WHERE id = $8
+                RETURNING id, name, email, phone_number, emergency_contact, designation, role, profile_image_url, status
             `;
             params = [
                 name || user.name, 
                 email || user.email, 
                 phone_number || user.phone_number, 
+                emergency_contact !== undefined ? emergency_contact : user.emergency_contact, 
                 designation || user.designation, 
                 role || user.role, 
                 profile_image_url,
@@ -606,14 +607,15 @@ const updateEmployee = async (req, res) => {
         } else {
             query = `
                 UPDATE users 
-                SET name = $1, email = $2, phone_number = $3, designation = $4, role = $5
-                WHERE id = $6
-                RETURNING id, name, email, phone_number, designation, role, profile_image_url, status
+                SET name = $1, email = $2, phone_number = $3, emergency_contact = $4, designation = $5, role = $6
+                WHERE id = $7
+                RETURNING id, name, email, phone_number, emergency_contact, designation, role, profile_image_url, status
             `;
             params = [
                 name || user.name, 
                 email || user.email, 
                 phone_number || user.phone_number, 
+                emergency_contact !== undefined ? emergency_contact : user.emergency_contact, 
                 designation || user.designation, 
                 role || user.role, 
                 id
