@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS subtasks (
     sheet_no VARCHAR(100),
     status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'In Progress', 'Completed')),
     completed_at TIMESTAMP,
+    position INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

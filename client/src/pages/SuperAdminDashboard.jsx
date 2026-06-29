@@ -97,7 +97,8 @@ const SuperAdminDashboard = () => {
     const [editingSubtaskName, setEditingSubtaskName] = useState('');
     const [editingSubtaskSheetNo, setEditingSubtaskSheetNo] = useState('');
 
-        const [projectSearch, setProjectSearch] = useState('');
+    const [draggedSubtaskId, setDraggedSubtaskId] = useState(null);
+    const [projectSearch, setProjectSearch] = useState('');
 
     // Site Visit Export Filters
     const [svProjectId, setSvProjectId] = useState('');
@@ -547,6 +548,35 @@ const SuperAdminDashboard = () => {
             alert('Failed to update subtask');
         }
     };
+
+    const handleDropSubtask = async (e, targetSubtaskId, categoryId) => {
+        e.preventDefault();
+        if (!draggedSubtaskId || draggedSubtaskId === targetSubtaskId) return;
+        
+        const category = projectTasks.find(cat => cat.id === categoryId);
+        if (!category || !category.subtasks) return;
+        
+        const subtasks = [...category.subtasks];
+        const draggedIndex = subtasks.findIndex(s => s.id === draggedSubtaskId);
+        const targetIndex = subtasks.findIndex(s => s.id === targetSubtaskId);
+        if (draggedIndex === -1 || targetIndex === -1) return;
+        
+        const [draggedItem] = subtasks.splice(draggedIndex, 1);
+        subtasks.splice(targetIndex, 0, draggedItem);
+        
+        setProjectTasks(prev => prev.map(cat => cat.id === categoryId ? { ...cat, subtasks } : cat));
+        if (selectedProjectId === checklistProjId) {
+            setTasks(prev => prev.map(cat => cat.id === categoryId ? { ...cat, subtasks } : cat));
+        }
+        
+        try {
+            const subtaskIds = subtasks.map(s => s.id);
+            await API.put('/tasks/reorder-subtasks', { subtaskIds });
+        } catch (err) {
+            console.error('Failed to save reordered subtasks:', err);
+        }
+    };
+
     const handleDeleteCategory = async (categoryId) => {
         if (!window.confirm('Are you sure you want to delete this category and all its subtasks?')) return;
         try {
@@ -2592,7 +2622,22 @@ const SuperAdminDashboard = () => {
                                                                 {category.subtasks && category.subtasks.map(sub => {
                                                                     const isEditing = editingSubtaskId === sub.id;
                                                                     return (
-                                                                        <tr key={sub.id}>
+                                                                        <tr 
+                                                                            key={sub.id}
+                                                                            draggable={!isEditing}
+                                                                            onDragStart={(e) => {
+                                                                                setDraggedSubtaskId(sub.id);
+                                                                                e.dataTransfer.effectAllowed = 'move';
+                                                                            }}
+                                                                            onDragOver={(e) => e.preventDefault()}
+                                                                            onDrop={(e) => handleDropSubtask(e, sub.id, category.id)}
+                                                                            onDragEnd={() => setDraggedSubtaskId(null)}
+                                                                            style={{ 
+                                                                                cursor: isEditing ? 'default' : 'grab', 
+                                                                                opacity: draggedSubtaskId === sub.id ? 0.4 : 1,
+                                                                                transition: 'opacity 0.2s'
+                                                                            }}
+                                                                        >
                                                                             <td>
                                                                                 {isEditing ? (
                                                                                     <input 
@@ -2640,7 +2685,7 @@ const SuperAdminDashboard = () => {
                                                                             </td>
                                                                             <td style={{ textAlign: 'center' }}>
                                                                                 {isEditing ? (
-                                                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
                                                                                         <button 
                                                                                             onClick={() => handleSaveEditSubtask(sub.id)}
                                                                                             style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', fontSize: '15px', padding: '4px' }}
@@ -2657,7 +2702,7 @@ const SuperAdminDashboard = () => {
                                                                                         </button>
                                                                                     </div>
                                                                                 ) : (
-                                                                                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', alignItems: 'center' }}>
                                                                                         <button 
                                                                                             onClick={() => {
                                                                                                 setEditingSubtaskId(sub.id);
@@ -2676,6 +2721,12 @@ const SuperAdminDashboard = () => {
                                                                                         >
                                                                                             ✕
                                                                                         </button>
+                                                                                        <span 
+                                                                                            style={{ cursor: 'grab', fontSize: '18px', color: 'var(--text-secondary)', userSelect: 'none', paddingLeft: '4px' }}
+                                                                                            title="Drag ≡ to reorder"
+                                                                                        >
+                                                                                            ≡
+                                                                                        </span>
                                                                                     </div>
                                                                                 )}
                                                                             </td>

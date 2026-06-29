@@ -80,7 +80,7 @@ const createTasks = async (req, res) => {
              FROM tasks t
              LEFT JOIN subtasks s ON t.id = s.task_id
              WHERE t.project_id = $1
-             ORDER BY t.created_at ASC, s.created_at ASC`,
+             ORDER BY t.created_at ASC, s.position ASC, s.created_at ASC`,
             [projectId]
         );
         
@@ -170,7 +170,7 @@ const createSubtask = async (req, res) => {
              FROM tasks t
              LEFT JOIN subtasks s ON t.id = s.task_id
              WHERE t.project_id = $1
-             ORDER BY t.created_at ASC, s.created_at ASC`,
+             ORDER BY t.created_at ASC, s.position ASC, s.created_at ASC`,
             [projectId]
         );
         
@@ -214,7 +214,7 @@ const getProjectTasks = async (req, res) => {
              FROM tasks t
              LEFT JOIN subtasks s ON t.id = s.task_id
              WHERE t.project_id = $1
-             ORDER BY t.created_at ASC, s.created_at ASC`,
+             ORDER BY t.created_at ASC, s.position ASC, s.created_at ASC`,
             [projectId]
         );
         
@@ -404,7 +404,7 @@ const applyChecklistTemplate = async (req, res) => {
              FROM tasks t
              LEFT JOIN subtasks s ON t.id = s.task_id
              WHERE t.project_id = $1
-             ORDER BY t.created_at ASC, s.created_at ASC`,
+             ORDER BY t.created_at ASC, s.position ASC, s.created_at ASC`,
             [projectId]
         );
         
@@ -436,6 +436,31 @@ const applyChecklistTemplate = async (req, res) => {
     }
 };
 
+const reorderSubtasks = async (req, res) => {
+    const { subtaskIds } = req.body;
+    if (!subtaskIds || !Array.isArray(subtaskIds)) {
+        return res.status(400).json({ message: 'subtaskIds array is required' });
+    }
+    
+    try {
+        await pool.query('BEGIN');
+        
+        for (let i = 0; i < subtaskIds.length; i++) {
+            await pool.query(
+                "UPDATE subtasks SET position = $1 WHERE id = $2",
+                [i, subtaskIds[i]]
+            );
+        }
+        
+        await pool.query('COMMIT');
+        res.json({ message: 'Subtasks reordered successfully' });
+    } catch (error) {
+        await pool.query('ROLLBACK');
+        console.error(error.message);
+        res.status(500).send('Server Error');
+    }
+};
+
 module.exports = { 
     createTasks, 
     createSubtask, 
@@ -443,5 +468,6 @@ module.exports = {
     updateSubtaskStatus, 
     deleteCategoryTask, 
     deleteSubtask, 
-    applyChecklistTemplate 
+    applyChecklistTemplate,
+    reorderSubtasks
 };
