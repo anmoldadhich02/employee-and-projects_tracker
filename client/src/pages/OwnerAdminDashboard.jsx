@@ -272,7 +272,7 @@ const OwnerAdminDashboard = () => {
 `[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell]\r\n\r\n` +
 `[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell\\open]\r\n\r\n` +
 `[HKEY_CURRENT_USER\\Software\\Classes\\open-ldp\\shell\\open\\command]\r\n` +
-`@="powershell -WindowStyle Hidden -Command \\"$u = '%1'; if ($u.StartsWith('open-ldp://', [System.StringComparison]::OrdinalIgnoreCase)) { $u = $u.Substring(11) } elseif ($u.StartsWith('open-ldp:', [System.StringComparison]::OrdinalIgnoreCase)) { $u = $u.Substring(9) }; $u = $u.Replace('/', '\\\\\\\\'); if ($u -notmatch '^[A-Za-z]:' -and -not $u.StartsWith('\\\\\\\\')) { $u = '\\\\\\\\' + $u }; if ($u.EndsWith('\\\\\\\\')) { $u = $u.Substring(0, $u.Length - 1) }; Start-Process explorer.exe $u\\""\r\n`;
+`@="powershell -WindowStyle Hidden -Command \\"$s = [Environment]::GetFolderPath('Desktop') + '\\\\LDP - Shortcut.lnk'; if (Test-Path $s) { Start-Process $s } else { $u = [URI]::UnescapeDataString('%1') -replace '^open-ldp:[\\\\/]*', ''; $u = $u.Replace('/', '\\\\'); if ($u -notmatch '^[A-Za-z]:' -and -not $u.StartsWith('\\\\')) { $u = '\\\\' + $u }; Start-Process explorer.exe $u }\\""\r\n`;
 
         const blob = new Blob([regContent], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
