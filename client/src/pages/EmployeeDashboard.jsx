@@ -2624,11 +2624,7 @@ const EmployeeDashboard = () => {
                                 </svg>
                             </div>
                         </div>
-                        
-                        <h3 style={{ fontSize: '20px', marginBottom: '8px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
-                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                            We have attempted to open the network folder directly in your File Explorer. If it did not open, copy the path or download the patch below.
-                        </p>
+                        <h3 style={{ fontSize: '20px', marginBottom: '16px', color: 'var(--text-primary)' }}>LDP Shared Folder</h3>
 
                         <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '24px', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: '13px', color: 'var(--accent-primary)' }}>
                             {ldpPath}
