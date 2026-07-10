@@ -1,4 +1,4 @@
-# BlueprintERP — Construction & Architectural Practice Management Platform
+# Architrack — Construction & Architectural Practice Management Platform
 
 A full-stack Enterprise Resource Planning (ERP) platform built with React, Node.js, and PostgreSQL for real-time workforce allocation, site inspections, task checklist tracking, and automated document generation.
 
