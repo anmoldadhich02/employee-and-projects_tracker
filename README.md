@@ -1,9 +1,37 @@
 # Architrack — Construction & Architectural Practice Management Platform
 
-A full-stack Enterprise Resource Planning (ERP) platform built with React, Node.js, and PostgreSQL for real-time workforce allocation, site inspections, task checklist tracking, and automated document generation.
+Architrack is a full-stack ERP platform designed for construction
+and architectural practices. It centralizes workforce management,
+project operations, site inspections, task tracking, and document
+workflows through a React frontend, Node.js backend, and PostgreSQL
+database.
 
 ---
+## Technology Stack
 
+| Layer | Technology |
+|---|---|
+| Frontend | React |
+| Backend | Node.js |
+| API | REST API |
+| Database | PostgreSQL |
+| Authentication | JWT |
+| Package Manager | npm |
+
+## Project Structure
+
+```text
+Architrack/
+├── client/
+│   ├── src/
+│   └── package.json
+│
+├── server/
+│   ├── ...
+│   └── package.json
+│
+├── README.md
+└── ...
 ## Prerequisites
 
 Before running the application, make sure you have the following installed on your target machine:
@@ -13,6 +41,33 @@ Before running the application, make sure you have the following installed on yo
 3. **PostgreSQL** database (v13 or higher, running locally, in a VM, or as a Docker container)
 
 ---
+## Key Features
+
+- Workforce and employee management
+- Project and task management
+- Site inspection management
+- Checklist tracking
+- Attendance and time tracking
+- Role-based access control
+- JWT-based authentication
+- PostgreSQL data management
+- Automated document generation
+
+  ## Architecture
+
+Architrack follows a client-server architecture:
+
+React Frontend
+       ↓
+REST API
+       ↓
+Node.js Backend
+       ↓
+PostgreSQL Database
+
+The React client provides the user interface, while the Node.js
+backend handles business logic, authentication, API requests and
+database operations. PostgreSQL stores application data.
 
 ## Step-by-Step Setup Guide
 
@@ -83,6 +138,7 @@ npm run dev
 ```
 *The React frontend will start running and display the access URL (usually `http://localhost:5173`).*
 
+
 ---
 
 ## Logging In (First-time Credentials)
@@ -93,3 +149,26 @@ Open `http://localhost:5173` in your browser. You can log in using the pre-seede
 * **Password:** `admin123`
 
 You can then register new employees, assign designations, and configure checklists from the Admin dashboard.
+
+## Troubleshooting
+
+### Database connection failed
+
+Check that:
+
+- PostgreSQL is running.
+- The database exists.
+- `.env` contains the correct credentials.
+- PostgreSQL is listening on the configured port.
+
+### Port already in use
+
+Change the configured backend port in `.env`.
+
+### Frontend cannot connect to backend
+
+Check that:
+
+- The backend server is running.
+- The frontend is using the correct API URL.
+- The configured backend port matches the frontend configuration.
